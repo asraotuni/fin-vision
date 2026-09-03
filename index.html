@@ -8,6 +8,17 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <script>
+    (() => {
+      try {
+        const savedTheme = localStorage.getItem('hiramyatech-theme');
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = savedTheme || systemTheme;
+      } catch (error) {
+        document.documentElement.dataset.theme = 'light';
+      }
+    })();
+  </script>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -20,7 +31,8 @@
       <div class="header-actions">
         <span class="secure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z"/></svg> Your data stays private</span>
         <button type="button" class="reset-data" id="resetDataBtn">Reset test data</button>
-        <button class="icon-button" aria-label="Help">?</button>
+        <button type="button" class="icon-button theme-toggle" id="themeToggle" aria-label="Use dark mode" aria-pressed="false" title="Use dark mode"><span aria-hidden="true">☾</span></button>
+        <button type="button" class="icon-button help-button" aria-label="Help">?</button>
       </div>
     </header>
 
@@ -286,9 +298,13 @@
               </div>
               <div class="projection-card">
                 <div class="projection-top"><div><small>Projected corpus at retirement</small><strong id="projectedCorpus">₹ 4.7 Cr</strong></div><div><small>Estimated corpus needed</small><strong id="neededCorpus">₹ 6.1 Cr</strong></div></div>
-                <div class="chart-caption"><strong>Projected corpus growth</strong><span>Bars show the estimated corpus over time</span></div>
-                <div class="chart" id="growthChart" aria-label="Projected retirement corpus growth chart"></div>
-                <div class="chart-axis"><span>Today</span><span id="midYear">In 14 yrs</span><span id="endYear">Age 60</span></div>
+                <div class="lifetime-chart-heading"><div><strong>Corpus through your lifetime</strong><span>One bar per year; hover or focus for the exact value</span></div><div class="lifetime-legend"><span class="accumulation-key">Accumulation</span><span class="retirement-key">Retirement</span><span class="drawdown-key">Drawdown</span></div></div>
+                <div class="lifetime-chart-layout"><span class="lifetime-chart-max" id="lifetimeChartMax">₹ 0</span><div class="lifetime-chart-scroll">
+                  <div class="lifetime-chart" id="lifetimeCorpusChart" role="group" aria-label="Annual lifetime corpus chart"></div>
+                  <div class="lifetime-chart-axis" id="lifetimeChartAxis"><span id="lifetimeNowLabel">Now</span><span id="lifetimeRetirementLabel">Retirement</span><span id="lifetimeEndLabel">Life expectancy</span></div>
+                </div>
+                </div>
+                <p class="lifetime-chart-note">Blue bars accumulate assets and investments. The highlighted bar is retirement; green bars then reflect annual returns and withdrawals.</p>
               </div>
             </div>
             <div class="gauge-section">

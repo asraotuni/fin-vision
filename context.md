@@ -20,9 +20,43 @@ The user intends to add authentication (possibly Google SSO), backend storage, a
 
 ## Current working-tree status
 
-At the time this file was written, `app.js`, `index.html`, and `styles.css` contain uncommitted modifications. Treat all existing changes as intentional user work and do not reset or overwrite them.
+The active branch is `dev`, tracking Bitbucket's `origin/dev`. At the time of this context refresh, the previously completed application changes were committed and the working tree was clean before editing this file. Treat any later uncommitted changes as intentional user work and do not reset or overwrite them.
+
+## Git remotes and GitHub Pages
+
+The repository is maintained on both Bitbucket and GitHub:
+
+- `origin` → `git@bitbucket-hiramyatech:hiramyatech/fin-vision.git`
+- `github` → `git@github.com:asraotuni/fin-vision.git`
+
+Bitbucket remains the primary remote and `dev` continues to track `origin/dev`. Do not use `git push -u github dev`, because that could replace the Bitbucket upstream. Push explicitly to both remotes when required:
+
+```bash
+git push origin dev
+git push github dev
+```
+
+GitHub Pages is intended to publish from the `dev` branch and repository root. Its URL is:
+
+`https://asraotuni.github.io/fin-vision/`
+
+GitHub Pages updates only after the relevant commit is pushed to the GitHub remote. A Bitbucket push does not automatically update GitHub. A Bitbucket Pipeline could automate mirroring later.
+
+The intended GitHub workflow is to publish/test `dev`, then raise a pull request from `dev` to `master`. `git push github master` pushes local `master` to GitHub's `master`; it does not copy or merge `dev`. Avoid `git push github dev:master` when a PR review is desired.
+
+### SSH account routing
+
+The local SSH configuration routes accounts by host alias:
+
+- `github.com` uses the user's personal GitHub identity (`asraotuni`).
+- `github-toluna` is reserved for the client GitHub identity.
+- `bitbucket-hiramyatech` routes the Bitbucket workspace identity.
+
+The personal GitHub remote therefore correctly uses `git@github.com:...`. Never record, copy, commit, or expose the contents of any private SSH key. Only `.pub` public keys are uploaded to hosting services.
 
 ## Branding and visual conventions
+
+- The header includes a moon/sun toggle for light and dark modes. The selected theme is stored separately under `hiramyatech-theme`; when no preference has been saved, the app follows the operating-system color preference.
 
 - Brand name: **HiramyaTech**.
 - Main heading: **Your financial planner.**
@@ -207,13 +241,14 @@ The report shows separate gauges, in this order:
 
 Gauge colors use green/yellow/red semantics. Goal gauges use the same projected pool and do not imply separately earmarked investments.
 
-### Corpus chart
+### Lifetime corpus chart
 
-- Label: **Projected corpus at retirement**.
-- It is a fixed-scale bar chart showing projected corpus growth from today to retirement.
-- The dashed horizontal line is labelled **Required corpus**.
-- Hovering over a bar shows the projected value and number of years.
-- The chart color is based on retirement-corpus readiness, not unrelated insurance gaps.
+- Headline label: **Projected corpus at retirement**.
+- The chart contains one annual bar from the current age through the entered life-expectancy age.
+- Blue bars show pre-retirement accumulation, the retirement-age bar is highlighted in coral, and green bars show post-retirement drawdown.
+- Hovering a bar shows its calendar year, age, and exact corpus.
+- The retirement bar uses the same calculation as the headline projected corpus, so the two values reconcile.
+- The lifetime series reflects asset-specific growth, monthly investments, major expenses, current outstanding loan balances, retirement returns, inflation-adjusted living costs, and post-retirement withdrawals.
 
 ### Deployment
 
@@ -264,3 +299,4 @@ Order and current suggested allocations:
 - Server-side or higher-fidelity PDF report generation.
 - A more comprehensive needs-based term-insurance calculation that incorporates loans, dependants, future goals, spouse income, usable assets, and existing cover.
 - Deployment suggestions that adapt to the calculated risk profile; current suggestions are static.
+- A Bitbucket Pipeline that automatically mirrors selected branches to GitHub, avoiding two manual pushes for each GitHub Pages update.

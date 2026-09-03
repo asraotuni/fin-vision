@@ -171,6 +171,17 @@ function updateDeploymentReturnGauge(){
   $('deploymentReturn').textContent = `${weightedReturn.toFixed(1)}%`;
 }
 
+function projectedCorpusAtYear(assetItems, monthly, rate, year, loans, expenseItems, currentYear){
+  const grownAssets = assetItems.reduce((sum, asset) => sum + asset.value * Math.pow(1 + asset.returnRate / 100, year), 0);
+  const expenseImpact = expenseItems
+    .filter(expense => expense.year < currentYear + year)
+    .reduce((sum, expense) => {
+      const expenseOffset = Math.max(0, expense.year - currentYear);
+      return sum + expense.amount * Math.pow(1 + rate / 100, Math.max(0, year - expenseOffset));
+    }, 0);
+  return Math.max(0, grownAssets - loans + futureValue(0, monthly, rate, year) - expenseImpact);
+}
+
 function calculatePlan(){
   const age = value('age'), retirementAge = Math.max(age + 1, value('retireAge'));
   const years = retirementAge - age;
@@ -192,14 +203,7 @@ function calculatePlan(){
   const currentYear = new Date().getFullYear();
   const retirementYear = currentYear + years;
   const expenseItems = majorExpenses();
-  const projectedAssets = retirementAssets.reduce((sum, asset) => sum + asset.value * Math.pow(1 + asset.returnRate / 100, years), 0);
-  const preRetirementExpenseImpact = expenseItems
-    .filter(expense => expense.year < retirementYear)
-    .reduce((sum, expense) => {
-      const yearsUntilExpense = Math.max(0, expense.year - currentYear);
-      return sum + expense.amount * Math.pow(1 + returnRate / 100, Math.max(0, years - yearsUntilExpense));
-    }, 0);
-  const projected = Math.max(0, projectedAssets - totalLoanValue + futureValue(0, monthly, returnRate, years) - preRetirementExpenseImpact);
+  const projected = projectedCorpusAtYear(retirementAssets, monthly, returnRate, years, totalLoanValue, expenseItems, currentYear);
   const retirementExpenseMonthly = monthlyRetirementLivingExpenses() * Math.pow(1 + inflation, years);
   const firstYearRetirementExpense = retirementExpenseMonthly * 12;
   let needed = 0;
@@ -234,8 +238,6 @@ function calculatePlan(){
   $('recommendedSip').textContent = money(recommended);
   $('sipGap').textContent = recommended > monthly ? `That’s ${money(recommended - monthly)} more per month.` : 'You’re investing enough for this estimate.';
   $('retirementIncome').textContent = `${compactMoney(todayIncome)} / month`;
-  $('midYear').textContent = `In ${Math.round(years/2)} yrs`;
-  $('endYear').textContent = `Age ${retirementAge}`;
   const term = gaugeScores.termScore >= 100;
   const health = gaugeScores.healthScore >= 100;
   const gaps = Number(!term) + Number(!health);
@@ -247,51 +249,52 @@ function calculatePlan(){
   $('statusBadge').textContent = planTone === 'good' ? 'Looking strong' : planTone === 'alert' ? 'Needs review' : 'Needs attention';
   setStatusTone($('scoreRing'), planTone);
   setStatusTone($('statusBadge'), planTone);
-  setStatusTone($('growthChart'), gaugeScores.retirementScore >= 90 ? 'good' : gaugeScores.retirementScore >= 60 ? 'alert' : 'bad');
   setStatusTone($('recommendedSip').closest('article'), recommended <= monthly ? 'good' : recommended - monthly <= Math.max(0, value('income') - value('expenses') - monthly) ? 'alert' : 'bad');
   setStatusTone($('retirementIncome').closest('article'), planTone);
   setStatusTone($('protectionStatus').closest('article'), gaps === 0 ? 'good' : gaps === 1 ? 'alert' : 'bad');
-  renderChart(retirementAssets, monthly, returnRate, years, needed, totalLoanValue, expenseItems, currentYear);
   renderDeployment(projected, enteredAllocations, enteredReturns);
-  renderDrawdown(projected, retirementAge, lifeExpectancy, retirementYear, firstYearRetirementExpense, inflation, retirementReturn, expenseItems);
+  const drawdownPoints = renderDrawdown(projected, retirementAge, lifeExpectancy, retirementYear, firstYearRetirementExpense, inflation, retirementReturn, expenseItems);
+  renderLifetimeCorpusChart(retirementAssets, monthly, returnRate, years, totalLoanValue, expenseItems, currentYear, age, retirementAge, lifeExpectancy, drawdownPoints);
   renderPlanGauges(gaugeScores, projected, needed);
   $('disclaimerInflation').textContent = `${(inflation * 100).toFixed(inflation * 100 % 1 ? 1 : 0)}%`;
 }
 
-function renderChart(assetItems, monthly, rate, years, needed, loans, expenseItems, currentYear){
-  const chart = $('growthChart'); chart.innerHTML = '';
-  const pointCount = 10;
-  const points = [];
-  for(let i=0;i<pointCount;i++){
-    const year = years * i / (pointCount - 1);
-    const grownAssets = assetItems.reduce((sum, asset) => sum + asset.value * Math.pow(1 + asset.returnRate / 100, year), 0);
-    const expenseImpact = expenseItems
-      .filter(expense => expense.year < currentYear + year)
-      .reduce((sum, expense) => {
-        const expenseOffset = Math.max(0, expense.year - currentYear);
-        return sum + expense.amount * Math.pow(1 + rate / 100, Math.max(0, year - expenseOffset));
-      }, 0);
-    const amount = Math.max(0, grownAssets - loans + futureValue(0, monthly, rate, year) - expenseImpact);
-    points.push({year, amount});
+function renderLifetimeCorpusChart(assetItems, monthly, rate, years, loans, expenseItems, currentYear, currentAge, retirementAge, lifeExpectancy, drawdownPoints){
+  const accumulationPoints = [];
+  for(let yearIndex = 0; yearIndex <= years; yearIndex += 1){
+    accumulationPoints.push({
+      year: currentYear + yearIndex,
+      age: currentAge + yearIndex,
+      amount: projectedCorpusAtYear(assetItems, monthly, rate, yearIndex, loans, expenseItems, currentYear),
+      phase: yearIndex === years ? 'retirement' : 'accumulation'
+    });
   }
-  const chartMaximum = Math.max(1, needed, ...points.map(point => point.amount)) * 1.08;
-  if(needed > 0){
-    const targetLine = document.createElement('span');
-    targetLine.className = 'chart-target';
-    targetLine.style.bottom = `${Math.min(100, needed / chartMaximum * 100)}%`;
-    targetLine.innerHTML = '<em>Required corpus</em>';
-    chart.appendChild(targetLine);
-  }
+  const points = [...accumulationPoints, ...drawdownPoints];
+  const maximum = Math.max(1, ...points.map(point => Math.max(0, point.amount)));
+  const chart = $('lifetimeCorpusChart');
+  const axis = $('lifetimeChartAxis');
+  chart.innerHTML = '';
+  const chartWidth = Math.max(520, points.length * 11);
+  chart.style.width = `${chartWidth}px`;
+  axis.style.width = `${chartWidth}px`;
   points.forEach(point => {
-    const height = Math.min(100, Math.max(3, point.amount / chartMaximum * 100));
     const bar = document.createElement('span');
-    bar.className = 'bar';
-    bar.style.height = `${height}%`;
-    bar.title = `In ${Math.round(point.year)} years: ${money(point.amount)}`;
+    const depleted = point.amount <= 0;
+    bar.className = `lifetime-bar ${point.phase}${depleted ? ' depleted' : ''}`;
+    bar.style.height = `${Math.max(2, Math.max(0, point.amount) / maximum * 100)}%`;
+    bar.title = `${point.year} · Age ${point.age} · ${money(point.amount)}`;
+    bar.setAttribute('aria-label', bar.title);
+    bar.tabIndex = 0;
+    if(point.phase === 'retirement') bar.innerHTML = '<i>Retirement</i>';
     chart.appendChild(bar);
   });
-  const finalAmount = points.at(-1)?.amount || 0;
-  chart.setAttribute('aria-label', `Bar chart of projected corpus growth from today to retirement, ending at ${money(finalAmount)}, compared with a required corpus of ${money(needed)}.`);
+  $('lifetimeChartMax').textContent = compactMoney(maximum);
+  $('lifetimeNowLabel').textContent = `Now · age ${currentAge}`;
+  $('lifetimeRetirementLabel').textContent = `Retirement · age ${retirementAge}`;
+  $('lifetimeEndLabel').textContent = `Life expectancy · age ${lifeExpectancy}`;
+  const retirementPosition = (retirementAge - currentAge) / Math.max(1, lifeExpectancy - currentAge) * 100;
+  $('lifetimeRetirementLabel').style.left = `${retirementPosition}%`;
+  chart.setAttribute('aria-label', `Annual corpus from age ${currentAge} through life expectancy age ${lifeExpectancy}, with retirement highlighted at age ${retirementAge}.`);
 }
 
 function renderDeployment(corpus, enteredAllocations, enteredReturns){
@@ -334,6 +337,7 @@ function renderDrawdown(openingCorpus, retirementAge, lifeExpectancy, retirement
   let openingFunds = openingCorpus;
   let depletedAtAge = null;
   const rows = [];
+  const chartPoints = [];
   for(let age = retirementAge; age < lifeExpectancy; age++){
     const yearIndex = age - retirementAge;
     const calendarYear = retirementYear + yearIndex;
@@ -348,6 +352,7 @@ function renderDrawdown(openingCorpus, retirementAge, lifeExpectancy, retirement
       <td>${calendarYear}</td><td>${age}</td><td>${money(openingFunds)}</td><td>${money(returns)}</td>
       <td>${money(livingExpenses)}</td><td>${money(majorExpense)}</td><td>${money(closingFunds)}</td>
     </tr>`);
+    chartPoints.push({year:calendarYear + 1, age:age + 1, amount:closingFunds, phase:'drawdown'});
     openingFunds = closingFunds;
   }
   $('drawdownBody').innerHTML = rows.join('');
@@ -356,6 +361,7 @@ function renderDrawdown(openingCorpus, retirementAge, lifeExpectancy, retirement
   $('drawdownNote').textContent = depletedAtAge !== null
     ? `On these assumptions, the retirement fund may be depleted around age ${depletedAtAge}.`
     : `On these assumptions, approximately ${money(Math.max(0, openingFunds))} remains at age ${lifeExpectancy}.`;
+  return chartPoints;
 }
 
 function fundsBeforeGoal(targetYear, assetItems, monthly, returnRate, loans, expenseItems, currentYear){
@@ -887,6 +893,26 @@ $('resetDataBtn').addEventListener('click', () => {
     window.location.reload();
   }
 });
+
+const THEME_KEY = 'hiramyatech-theme';
+function applyTheme(theme, persist = false){
+  const selectedTheme = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = selectedTheme;
+  const useDarkMode = selectedTheme !== 'dark';
+  const themeToggle = $('themeToggle');
+  themeToggle.querySelector('span').textContent = useDarkMode ? '☾' : '☀';
+  themeToggle.setAttribute('aria-label', useDarkMode ? 'Use dark mode' : 'Use light mode');
+  themeToggle.setAttribute('aria-pressed', String(selectedTheme === 'dark'));
+  themeToggle.title = useDarkMode ? 'Use dark mode' : 'Use light mode';
+  if(persist){
+    try { localStorage.setItem(THEME_KEY, selectedTheme); } catch(error) { console.warn('Could not save theme preference.', error); }
+  }
+}
+
+$('themeToggle').addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true);
+});
+applyTheme(document.documentElement.dataset.theme);
 
 migrateLegacyPlannerState();
 const restoredStep = restoreState();
