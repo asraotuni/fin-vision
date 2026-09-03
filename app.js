@@ -19,6 +19,14 @@ const POLICY_INSURERS = {
   term: ['Not specified', 'ICICI Prudential', 'LIC', 'HDFC Life', 'SBI Life', 'Max Life', 'Tata AIA', 'Bajaj Allianz Life', 'Kotak Life', 'Other / custom']
 };
 const EXPENSE_TYPES = ['Son’s marriage', 'Daughter’s marriage', 'Son’s education', 'Daughter’s education', 'Other / custom'];
+const RETIREMENT_ALLOCATION = [
+  {name:'Real estate', suggestedAllocation:10, returnRate:7.5},
+  {name:'Gold', suggestedAllocation:20, returnRate:6},
+  {name:'Fixed deposits', suggestedAllocation:10, returnRate:7},
+  {name:'Mutual funds', suggestedAllocation:30, returnRate:9},
+  {name:'Direct equity', suggestedAllocation:10, returnRate:11},
+  {name:'Pension / annuity products', suggestedAllocation:20, returnRate:6.5}
+];
 let current = 0;
 let memberCount = 0;
 let assetCount = 0;
@@ -26,18 +34,25 @@ let loanCount = 0;
 let policyCount = 0;
 let expenseCount = 0;
 let restoredAssetList = false;
+let deploymentAllocations = null;
+let deploymentReturns = null;
 
 const $ = id => document.getElementById(id);
 const parseAmount = rawValue => Math.max(0, Number(String(rawValue || '').replace(/,/g, '')) || 0);
 const numericValue = input => parseAmount(input?.value);
 const value = id => numericValue($(id));
-const money = n => new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(n);
+const money = n => new Intl.NumberFormat('en-IN', { style:'currency', currency:'INR', maximumFractionDigits:0 }).format(n).replace(/₹\s*/, '₹ ');
 const indianNumber = n => new Intl.NumberFormat('en-IN', { maximumFractionDigits:0 }).format(n);
 const compactMoney = n => {
-  if (n >= 1e7) return `₹${(n / 1e7).toFixed(1)} Cr`;
-  if (n >= 1e5) return `₹${(n / 1e5).toFixed(1)} L`;
+  if (n >= 1e7) return `₹ ${(n / 1e7).toFixed(1)} Cr`;
+  if (n >= 1e5) return `₹ ${(n / 1e5).toFixed(1)} L`;
   return money(n);
 };
+
+function setStatusTone(element, tone){
+  element.classList.remove('status-good', 'status-alert', 'status-bad');
+  element.classList.add(`status-${tone}`);
+}
 
 function updateBasics(){
   const years = Math.max(0, value('retireAge') - value('age'));
@@ -46,12 +61,14 @@ function updateBasics(){
 
 function updateCash(){
   const income = value('income');
-  const surplus = income - value('expenses') - value('monthlyInvestment');
-  const totalSaved = Math.max(0, income - value('expenses'));
+  const loanPayments = value('loanPayments');
+  const surplus = income - value('expenses') - loanPayments - value('monthlyInvestment');
+  const totalSaved = Math.max(0, income - value('expenses') - loanPayments);
   $('surplus').textContent = money(surplus);
   $('surplus').style.color = surplus < 0 ? '#d95643' : '';
   $('savingsRate').textContent = `${income ? Math.round(totalSaved / income * 100) : 0}%`;
   $('cashHint').textContent = surplus < 0 ? 'Your monthly outflow needs a quick review.' : totalSaved / income >= .3 ? 'A healthy base to build from.' : 'There’s room to grow your savings rate.';
+  setStatusTone(document.querySelector('.metric-strip'), surplus < 0 ? 'bad' : totalSaved / Math.max(1, income) >= .3 ? 'good' : 'alert');
 }
 
 function isCurrencyInput(input){
@@ -77,6 +94,51 @@ function futureValue(principal, monthly, annualRate, years){
   return principal * Math.pow(1 + rate, months) + (rate ? monthly * ((Math.pow(1 + rate, months) - 1) / rate) : monthly * months);
 }
 
+function deriveAllocationsFromAssets(assetItems){
+  const amounts = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [item.name, 0]));
+  assetItems.forEach(asset => {
+    let category = 'Fixed deposits';
+    if(['Independent house / villa','Flat','Plot','Agricultural land'].includes(asset.type)) category = 'Real estate';
+    else if(asset.type === 'Mutual funds') category = 'Mutual funds';
+    else if(asset.type === 'Gold') category = 'Gold';
+    else if(asset.type === 'Stocks') category = 'Direct equity';
+    else if(['EPF / PF','NPS'].includes(asset.type)) category = 'Pension / annuity products';
+    amounts[category] += asset.value;
+  });
+  const total = Object.values(amounts).reduce((sum, amount) => sum + amount, 0);
+  if(!total) return Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [item.name, item.suggestedAllocation]));
+  const allocations = Object.fromEntries(Object.entries(amounts).map(([name, amount]) => [name, Math.round(amount / total * 1000) / 10]));
+  const roundedTotal = Object.values(allocations).reduce((sum, allocation) => sum + allocation, 0);
+  allocations['Fixed deposits'] = Math.max(0, Math.round((allocations['Fixed deposits'] + 100 - roundedTotal) * 10) / 10);
+  return allocations;
+}
+
+function actualAllocations(assetItems){
+  if(!deploymentAllocations) deploymentAllocations = deriveAllocationsFromAssets(assetItems);
+  return deploymentAllocations;
+}
+
+function actualDeploymentReturns(){
+  if(!deploymentReturns){
+    deploymentReturns = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [item.name, item.returnRate]));
+  }
+  return deploymentReturns;
+}
+
+function weightedDeploymentReturn(){
+  const allocations = deploymentAllocations || {};
+  const returns = actualDeploymentReturns();
+  return RETIREMENT_ALLOCATION.reduce((sum, item) => sum + (allocations[item.name] || 0) * (returns[item.name] || 0), 0) / 100;
+}
+
+function updateDeploymentReturnGauge(){
+  const weightedReturn = weightedDeploymentReturn();
+  const gauge = $('deploymentReturnGauge');
+  gauge.style.setProperty('--gauge', Math.min(100, weightedReturn / 15 * 100));
+  setStatusTone(gauge, weightedReturn < 6 ? 'bad' : weightedReturn <= 10 ? 'alert' : 'good');
+  $('deploymentReturn').textContent = `${weightedReturn.toFixed(1)}%`;
+}
+
 function calculatePlan(){
   const age = value('age'), retirementAge = Math.max(age + 1, value('retireAge'));
   const years = retirementAge - age;
@@ -89,25 +151,45 @@ function calculatePlan(){
   const returnRate = currentAssetValue
     ? retirementAssets.reduce((sum, asset) => sum + asset.value * asset.returnRate, 0) / currentAssetValue
     : 10;
-  const inflation = .06;
+  const inflation = Math.min(20, value('inflationRate')) / 100;
+  const lifeExpectancy = Math.min(100, Math.max(retirementAge + 1, value('lifeExpectancy')));
+  const retirementYears = lifeExpectancy - retirementAge;
+  const enteredAllocations = actualAllocations(retirementAssets);
+  const enteredReturns = actualDeploymentReturns();
+  const retirementReturn = weightedDeploymentReturn() / 100;
   const currentYear = new Date().getFullYear();
   const retirementYear = currentYear + years;
   const expenseItems = majorExpenses();
   const projectedAssets = retirementAssets.reduce((sum, asset) => sum + asset.value * Math.pow(1 + asset.returnRate / 100, years), 0);
   const preRetirementExpenseImpact = expenseItems
-    .filter(expense => expense.year <= retirementYear)
+    .filter(expense => expense.year < retirementYear)
     .reduce((sum, expense) => {
       const yearsUntilExpense = Math.max(0, expense.year - currentYear);
       return sum + expense.amount * Math.pow(1 + returnRate / 100, Math.max(0, years - yearsUntilExpense));
     }, 0);
   const projected = Math.max(0, projectedAssets - totalLoanValue + futureValue(0, monthly, returnRate, years) - preRetirementExpenseImpact);
   const retirementExpenseMonthly = value('expenses') * Math.pow(1 + inflation, years);
-  const postRetirementExpenseNeed = expenseItems
-    .filter(expense => expense.year > retirementYear)
-    .reduce((sum, expense) => sum + expense.amount / Math.pow(1 + inflation, expense.year - retirementYear), 0);
-  const needed = retirementExpenseMonthly * 12 * 25 + postRetirementExpenseNeed;
+  const firstYearRetirementExpense = retirementExpenseMonthly * 12;
+  let needed = 0;
+  for(let yearIndex = 0; yearIndex < retirementYears; yearIndex++){
+    needed += firstYearRetirementExpense * Math.pow(1 + inflation, yearIndex) / Math.pow(1 + retirementReturn, yearIndex);
+  }
+  needed += expenseItems
+    .filter(expense => expense.year >= retirementYear && expense.year < retirementYear + retirementYears)
+    .reduce((sum, expense) => sum + expense.amount / Math.pow(1 + retirementReturn, expense.year - retirementYear), 0);
   const ratio = needed ? projected / needed : 1;
-  const score = Math.min(100, Math.max(12, Math.round(ratio * 82)));
+  const gaugeScores = calculatePlanGaugeScores({
+    projected, needed, retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear
+  });
+  const readinessComponents = [
+    {score:gaugeScores.retirementScore, weight:40},
+    {score:gaugeScores.healthScore, weight:20},
+    {score:gaugeScores.termScore, weight:20},
+    ...(gaugeScores.education.score === null ? [] : [{score:gaugeScores.education.score, weight:10}]),
+    ...(gaugeScores.marriage.score === null ? [] : [{score:gaugeScores.marriage.score, weight:10}])
+  ];
+  const readinessWeight = readinessComponents.reduce((sum, component) => sum + component.weight, 0);
+  const score = Math.round(readinessComponents.reduce((sum, component) => sum + component.score * component.weight, 0) / readinessWeight);
   const targetMonthly = Math.max(monthly, monthly / Math.max(ratio, .1));
   const recommended = Math.ceil(targetMonthly / 500) * 500;
   const todayIncome = retirementExpenseMonthly / Math.pow(1 + inflation, years);
@@ -122,32 +204,183 @@ function calculatePlan(){
   $('retirementIncome').textContent = `${compactMoney(todayIncome)} / month`;
   $('midYear').textContent = `In ${Math.round(years/2)} yrs`;
   $('endYear').textContent = `Age ${retirementAge}`;
-  const term = policies('term').some(policy => policy.cover > 0);
-  const health = policies('health').some(policy => policy.cover > 0);
+  const term = gaugeScores.termScore >= 100;
+  const health = gaugeScores.healthScore >= 100;
   const gaps = Number(!term) + Number(!health);
   $('protectionStatus').textContent = gaps ? `${gaps} gap${gaps > 1 ? 's' : ''} to close` : 'You’re covered';
   $('protectionCopy').textContent = !health ? 'Prioritise health cover for unexpected medical costs.' : !term ? 'Add term life cover if someone depends on you.' : 'Review cover amounts and nominees once a year.';
-  $('statusBadge').textContent = score >= 85 ? 'Looking strong' : score >= 60 ? 'A promising start' : 'Needs attention';
-  $('scoreCopy').textContent = score >= 85 ? 'You’re in good shape. Keep reviewing your plan yearly.' : score >= 60 ? 'You’re on your way. A few smart changes can close the gap.' : 'Your goal needs a boost. Start with the monthly investment target.';
+  $('scoreCopy').textContent = score >= 85 ? 'A combined view of retirement funds, insurance and entered family goals.' : score >= 60 ? 'Some parts of your plan still need attention; review the gauges below.' : 'Several important parts of your plan need attention; start with the red gauges.';
+  const hasBadCoreGauge = [gaugeScores.retirementScore, gaugeScores.healthScore, gaugeScores.termScore].some(componentScore => componentScore < 60);
+  const planTone = hasBadCoreGauge ? (score >= 60 ? 'alert' : 'bad') : score >= 85 ? 'good' : score >= 60 ? 'alert' : 'bad';
+  $('statusBadge').textContent = planTone === 'good' ? 'Looking strong' : planTone === 'alert' ? 'Needs review' : 'Needs attention';
+  setStatusTone($('scoreRing'), planTone);
+  setStatusTone($('statusBadge'), planTone);
+  setStatusTone($('growthChart'), gaugeScores.retirementScore >= 90 ? 'good' : gaugeScores.retirementScore >= 60 ? 'alert' : 'bad');
+  setStatusTone($('recommendedSip').closest('article'), recommended <= monthly ? 'good' : recommended - monthly <= Math.max(0, value('income') - value('expenses') - value('loanPayments') - monthly) ? 'alert' : 'bad');
+  setStatusTone($('retirementIncome').closest('article'), planTone);
+  setStatusTone($('protectionStatus').closest('article'), gaps === 0 ? 'good' : gaps === 1 ? 'alert' : 'bad');
   renderChart(retirementAssets, monthly, returnRate, years, needed, totalLoanValue, expenseItems, currentYear);
+  renderDeployment(projected, enteredAllocations, enteredReturns);
+  renderDrawdown(projected, retirementAge, lifeExpectancy, retirementYear, firstYearRetirementExpense, inflation, retirementReturn, expenseItems);
+  renderPlanGauges(gaugeScores, projected, needed);
+  $('disclaimerInflation').textContent = `${(inflation * 100).toFixed(inflation * 100 % 1 ? 1 : 0)}%`;
 }
 
 function renderChart(assetItems, monthly, rate, years, needed, loans, expenseItems, currentYear){
   const chart = $('growthChart'); chart.innerHTML = '';
-  const points = 22;
-  for(let i=0;i<points;i++){
-    const year = years * i / (points - 1);
+  const pointCount = 10;
+  const points = [];
+  for(let i=0;i<pointCount;i++){
+    const year = years * i / (pointCount - 1);
     const grownAssets = assetItems.reduce((sum, asset) => sum + asset.value * Math.pow(1 + asset.returnRate / 100, year), 0);
     const expenseImpact = expenseItems
-      .filter(expense => expense.year <= currentYear + year)
+      .filter(expense => expense.year < currentYear + year)
       .reduce((sum, expense) => {
         const expenseOffset = Math.max(0, expense.year - currentYear);
         return sum + expense.amount * Math.pow(1 + rate / 100, Math.max(0, year - expenseOffset));
       }, 0);
     const amount = Math.max(0, grownAssets - loans + futureValue(0, monthly, rate, year) - expenseImpact);
-    const height = Math.min(100, Math.max(4, amount / Math.max(needed, amount) * 100));
-    const bar = document.createElement('span'); bar.className='bar'; bar.style.height=`${height}%`; chart.appendChild(bar);
+    points.push({year, amount});
   }
+  const chartMaximum = Math.max(1, needed, ...points.map(point => point.amount)) * 1.08;
+  if(needed > 0){
+    const targetLine = document.createElement('span');
+    targetLine.className = 'chart-target';
+    targetLine.style.bottom = `${Math.min(100, needed / chartMaximum * 100)}%`;
+    targetLine.innerHTML = '<em>Required corpus</em>';
+    chart.appendChild(targetLine);
+  }
+  points.forEach(point => {
+    const height = Math.min(100, Math.max(3, point.amount / chartMaximum * 100));
+    const bar = document.createElement('span');
+    bar.className = 'bar';
+    bar.style.height = `${height}%`;
+    bar.title = `In ${Math.round(point.year)} years: ${money(point.amount)}`;
+    chart.appendChild(bar);
+  });
+  const finalAmount = points.at(-1)?.amount || 0;
+  chart.setAttribute('aria-label', `Bar chart of projected corpus growth from today to retirement, ending at ${money(finalAmount)}, compared with a required corpus of ${money(needed)}.`);
+}
+
+function renderDeployment(corpus, enteredAllocations, enteredReturns){
+  updateDeploymentReturnGauge();
+  $('deploymentRows').innerHTML = RETIREMENT_ALLOCATION.map(item => {
+    const actual = enteredAllocations[item.name] || 0;
+    const highlightsRealEstate = item.name === 'Real estate' && actual > item.suggestedAllocation;
+    const severeRealEstate = item.name === 'Real estate' && actual >= 30;
+    return `
+    <div class="deployment-row${highlightsRealEstate ? ' overallocated' : ''}${severeRealEstate ? ' badly-overallocated' : ''}">
+      <b>${item.name}</b>
+      <span class="allocation-cell"><span class="allocation-bar"><i style="width:${item.suggestedAllocation * 4}%"></i></span>${item.suggestedAllocation}%</span>
+      <label class="actual-allocation-wrap"><input class="actual-allocation" type="number" min="0" max="100" step="0.1" data-asset-class="${item.name}" value="${actual}"><span>%</span></label>
+      <label class="actual-allocation-wrap"><input class="assumed-return" type="number" min="0" max="30" step="0.1" data-asset-class="${item.name}" value="${enteredReturns[item.name]}"><span>%</span></label>
+      <span>${money(corpus * actual / 100)}</span>
+    </div>`;
+  }).join('');
+  updateAllocationInsight();
+}
+
+function updateAllocationInsight(){
+  const allocations = deploymentAllocations || {};
+  const realEstate = Number(allocations['Real estate']) || 0;
+  const suggestedRealEstate = RETIREMENT_ALLOCATION.find(item => item.name === 'Real estate').suggestedAllocation;
+  const total = RETIREMENT_ALLOCATION.reduce((sum, item) => sum + (Number(allocations[item.name]) || 0), 0);
+  const severeRealEstate = realEstate >= 30;
+  const messages = [];
+  if(realEstate > suggestedRealEstate){
+    messages.push(`<strong>High real-estate concentration:</strong> ${realEstate}% actual versus ${suggestedRealEstate}% suggested. Heavy property exposure can reduce liquidity and diversification during retirement.`);
+  } else {
+    messages.push(`Real estate is ${realEstate}% of the entered retirement allocation, against a ${suggestedRealEstate}% suggestion.`);
+  }
+  if(Math.abs(total - 100) > 0.05) messages.push(`<strong>Actual allocation totals ${total.toFixed(1)}%.</strong> Adjust it to 100% for a complete projection.`);
+  $('allocationInsight').innerHTML = messages.join(' ');
+  $('allocationInsight').classList.toggle('alert', !severeRealEstate && (realEstate > suggestedRealEstate || Math.abs(total - 100) > 0.05));
+  $('allocationInsight').classList.toggle('bad', severeRealEstate);
+}
+
+function renderDrawdown(openingCorpus, retirementAge, lifeExpectancy, retirementYear, firstYearExpense, inflation, returnRate, expenseItems){
+  let openingFunds = openingCorpus;
+  let depletedAtAge = null;
+  const rows = [];
+  for(let age = retirementAge; age < lifeExpectancy; age++){
+    const yearIndex = age - retirementAge;
+    const calendarYear = retirementYear + yearIndex;
+    const returns = openingFunds > 0 ? openingFunds * returnRate : 0;
+    const livingExpenses = firstYearExpense * Math.pow(1 + inflation, yearIndex);
+    const majorExpense = expenseItems
+      .filter(expense => expense.year === calendarYear)
+      .reduce((sum, expense) => sum + expense.amount, 0);
+    const closingFunds = openingFunds + returns - livingExpenses - majorExpense;
+    if(closingFunds < 0 && depletedAtAge === null) depletedAtAge = age;
+    rows.push(`<tr${closingFunds < 0 ? ' class="depleted"' : ''}>
+      <td>${calendarYear}</td><td>${age}</td><td>${money(openingFunds)}</td><td>${money(returns)}</td>
+      <td>${money(livingExpenses)}</td><td>${money(majorExpense)}</td><td>${money(closingFunds)}</td>
+    </tr>`);
+    openingFunds = closingFunds;
+  }
+  $('drawdownBody').innerHTML = rows.join('');
+  $('scheduleHorizon').textContent = `Through age ${lifeExpectancy}`;
+  setStatusTone($('drawdownNote'), depletedAtAge !== null ? 'bad' : 'good');
+  $('drawdownNote').textContent = depletedAtAge !== null
+    ? `On these assumptions, the retirement fund may be depleted around age ${depletedAtAge}.`
+    : `On these assumptions, approximately ${money(Math.max(0, openingFunds))} remains at age ${lifeExpectancy}.`;
+}
+
+function fundsBeforeGoal(targetYear, assetItems, monthly, returnRate, loans, expenseItems, currentYear){
+  const yearsUntilGoal = Math.max(0, targetYear - currentYear);
+  const grownAssets = assetItems.reduce((sum, asset) => sum + asset.value * Math.pow(1 + asset.returnRate / 100, yearsUntilGoal), 0);
+  const earlierExpenseImpact = expenseItems
+    .filter(expense => expense.year < targetYear)
+    .reduce((sum, expense) => {
+      const yearsAfterExpense = Math.max(0, targetYear - expense.year);
+      return sum + expense.amount * Math.pow(1 + returnRate / 100, yearsAfterExpense);
+    }, 0);
+  return Math.max(0, grownAssets - loans + futureValue(0, monthly, returnRate, yearsUntilGoal) - earlierExpenseImpact);
+}
+
+function goalReadiness(predicate, assetItems, monthly, returnRate, loans, expenseItems, currentYear){
+  const matching = expenseItems.filter(expense => predicate(`${expense.type} ${expense.customType}`.toLowerCase()));
+  const total = matching.reduce((sum, expense) => sum + expense.amount, 0);
+  if(!matching.length) return {score:null, total:0};
+  if(!total) return {score:0, total:0};
+  const covered = matching.reduce((sum, expense) => {
+    const allCostsThatYear = expenseItems.filter(item => item.year === expense.year).reduce((yearSum, item) => yearSum + item.amount, 0);
+    const available = fundsBeforeGoal(expense.year, assetItems, monthly, returnRate, loans, expenseItems, currentYear);
+    const yearCoverage = allCostsThatYear ? Math.min(1, available / allCostsThatYear) : 0;
+    return sum + expense.amount * yearCoverage;
+  }, 0);
+  return {score:Math.min(100, covered / total * 100), total};
+}
+
+function renderGauge(name, score, meta){
+  const gauge = $(`${name}Gauge`);
+  const normalizedScore = score === null ? 0 : Math.min(100, Math.max(0, score));
+  gauge.style.setProperty('--gauge', normalizedScore);
+  gauge.classList.remove('status-good', 'status-alert', 'status-bad');
+  if(score !== null) setStatusTone(gauge, normalizedScore >= 90 ? 'good' : normalizedScore >= 60 ? 'alert' : 'bad');
+  $(`${name}GaugeValue`).textContent = score === null ? '—' : `${Math.round(normalizedScore)}%`;
+  $(`${name}GaugeMeta`).textContent = meta;
+}
+
+function calculatePlanGaugeScores({projected, needed, retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear}){
+  const retirementScore = needed ? Math.min(100, projected / needed * 100) : 100;
+  const healthCover = policies('health').reduce((sum, policy) => sum + policy.cover, 0);
+  const termCover = policies('term').reduce((sum, policy) => sum + policy.cover, 0);
+  const targetHealth = Math.max(1000000, value('expenses') * 12);
+  const targetTerm = Math.max(1, value('income') * 12 * 10);
+  const healthScore = Math.min(100, healthCover / targetHealth * 100);
+  const termScore = Math.min(100, termCover / targetTerm * 100);
+  const education = goalReadiness(text => text.includes('education'), retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear);
+  const marriage = goalReadiness(text => text.includes('marriage'), retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear);
+  return {retirementScore, healthScore, termScore, healthCover, termCover, targetHealth, targetTerm, education, marriage};
+}
+
+function renderPlanGauges(scores, projected, needed){
+  renderGauge('retirement', scores.retirementScore, `${compactMoney(projected)} of ${compactMoney(needed)} needed`);
+  renderGauge('healthInsurance', scores.healthScore, `${compactMoney(scores.healthCover)} of ${compactMoney(scores.targetHealth)} target`);
+  renderGauge('termInsurance', scores.termScore, `${compactMoney(scores.termCover)} of ${compactMoney(scores.targetTerm)} target`);
+  renderGauge('education', scores.education.score, scores.education.score === null ? 'No expense entered' : `${compactMoney(scores.education.total)} anticipated`);
+  renderGauge('marriage', scores.marriage.score, scores.marriage.score === null ? 'No expense entered' : `${compactMoney(scores.marriage.total)} anticipated`);
 }
 
 function addAsset(asset = {}, shouldFocus = true){
@@ -164,7 +397,8 @@ function addAsset(asset = {}, shouldFocus = true){
     <select class="family-input asset-type" aria-label="Asset type">
       ${availableTypes.map(option => `<option${type === option ? ' selected' : ''}>${option}</option>`).join('')}
     </select>
-    <div class="asset-money"><span>₹</span><input class="family-input asset-value" type="text" inputmode="numeric" aria-label="Current asset value" placeholder="Value" value="${asset.value ?? ''}"></div>
+    <input class="family-input asset-notes" type="text" aria-label="Asset notes" placeholder="e.g. location, account or owner" value="${escapeText(asset.notes || '')}">
+    <div class="asset-money asset-current-value"><span>₹</span><input class="family-input asset-value" type="text" inputmode="numeric" aria-label="Current asset value" placeholder="Value" value="${asset.value ?? ''}"></div>
     <div class="asset-rate"><input class="family-input asset-return" type="number" aria-label="Expected annual return" min="0" max="30" step="0.1" value="${asset.returnRate ?? ASSET_RETURNS[type]}"><span>%</span></div>
     ${isExcluded
       ? '<span class="excluded-mark" title="Not counted toward retirement assets" aria-label="Not counted toward retirement assets">⊘</span>'
@@ -187,6 +421,7 @@ function addAsset(asset = {}, shouldFocus = true){
 function assets(){
   return [...$('assetList').querySelectorAll('.asset-row')].map(row => ({
     type: row.querySelector('.asset-type').value,
+    notes: row.querySelector('.asset-notes').value.trim(),
     value: numericValue(row.querySelector('.asset-value')),
     returnRate: Math.max(0, Number(row.querySelector('.asset-return').value) || 0),
     excludedFromRetirement: row.dataset.excludedFromRetirement === 'true'
@@ -294,10 +529,13 @@ function updateProtectionSummary(){
   const suggestedTermCover = value('income') * 12 * 10;
   if(!healthCover){
     $('insuranceHint').textContent = 'Add health cover to protect your savings from unexpected medical costs.';
-  } else if(termCover < suggestedTermCover){
+    setStatusTone(document.querySelector('.warning'), 'bad');
+  } else if(!termCover || termCover < suggestedTermCover){
     $('insuranceHint').textContent = `Consider total term cover of around ${money(suggestedTermCover)}, especially if someone depends on you.`;
+    setStatusTone(document.querySelector('.warning'), 'alert');
   } else {
     $('insuranceHint').textContent = 'Your core protection is recorded. Review cover amounts and nominees every year.';
+    setStatusTone(document.querySelector('.warning'), 'good');
   }
 }
 
@@ -398,6 +636,8 @@ function saveState(){
     majorExpenses: majorExpenses(),
     healthPolicies: policies('health'),
     termPolicies: policies('term'),
+    deploymentAllocations,
+    deploymentReturns,
     currentStep: current
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(error) { console.warn('Could not save planner data.', error); }
@@ -440,6 +680,20 @@ function restoreState(){
     } else if(state.term === 'yes' || parseAmount(state.fields?.termCover)){
       addPolicy('term', {insurer:'Not specified', cover:parseAmount(state.fields?.termCover), source:'Personally taken'}, false);
     }
+    if(state.deploymentAllocations && typeof state.deploymentAllocations === 'object'){
+      deploymentAllocations = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [
+        item.name,
+        Math.min(100, Math.max(0, Number(state.deploymentAllocations[item.name]) || 0))
+      ]));
+    }
+    if(state.deploymentReturns && typeof state.deploymentReturns === 'object'){
+      deploymentReturns = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [
+        item.name,
+        state.deploymentReturns[item.name] === undefined
+          ? item.returnRate
+          : Math.min(30, Math.max(0, Number(state.deploymentReturns[item.name]) || 0))
+      ]));
+    }
     return Number.isInteger(state.currentStep) ? state.currentStep : 0;
   } catch(error) {
     console.warn('Could not restore planner data.', error);
@@ -453,14 +707,22 @@ function showPanel(index){
   steps.forEach((s,i) => { s.classList.toggle('active',i===current); s.classList.toggle('done',i<current); });
   backBtn.disabled = current === 0;
   stepCount.textContent = `Step ${current + 1} of ${panels.length}`;
-  const labels = ['Next: Cash flow','Next: Your wealth','Next: Major expenses','Next: Protection','See my plan','Start over'];
-  nextBtn.innerHTML = `${labels[current]} <span>→</span>`;
+  const labels = ['Next: Cash flow','Next: Your wealth','Next: Major expenses','Next: Protection','See my plan','Download report'];
+  const actionIcon = current === panels.length - 1 ? '↓' : '→';
+  nextBtn.innerHTML = `${labels[current]} <span>${actionIcon}</span>`;
   if(current === 5) calculatePlan();
   saveState();
   document.querySelector('.planner-card').scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-nextBtn.addEventListener('click', () => current === 5 ? showPanel(0) : showPanel(current + 1));
+nextBtn.addEventListener('click', () => {
+  if(current === panels.length - 1){
+    calculatePlan();
+    window.print();
+  } else {
+    showPanel(current + 1);
+  }
+});
 backBtn.addEventListener('click', () => showPanel(current - 1));
 steps.forEach(step => step.addEventListener('click', () => showPanel(Number(step.dataset.step))));
 $('addMemberBtn').addEventListener('click', () => { addFamilyMember(); saveState(); });
@@ -525,6 +787,24 @@ $('expenseList').addEventListener('change', event => {
     }
     updateProtectionSummary(); saveState();
   });
+});
+$('deploymentRows').addEventListener('input', event => {
+  if(event.target.classList.contains('actual-allocation')){
+    const allocation = Math.min(100, Math.max(0, Number(event.target.value) || 0));
+    deploymentAllocations[event.target.dataset.assetClass] = allocation;
+    updateAllocationInsight();
+    updateDeploymentReturnGauge();
+    saveState();
+  }
+  if(event.target.classList.contains('assumed-return')){
+    const returnRate = Math.min(30, Math.max(0, Number(event.target.value) || 0));
+    deploymentReturns[event.target.dataset.assetClass] = returnRate;
+    updateDeploymentReturnGauge();
+    saveState();
+  }
+});
+$('deploymentRows').addEventListener('change', event => {
+  if(event.target.classList.contains('actual-allocation') || event.target.classList.contains('assumed-return')) calculatePlan();
 });
 $('resetDataBtn').addEventListener('click', () => {
   if(confirm('Clear all saved planner values and restore the defaults?')){

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="description" content="PaisaPlan — a friendly retirement planning experience." />
-  <title>PaisaPlan — Retirement planning, made human</title>
+  <title>HiramyaTech — Your financial planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -13,9 +13,9 @@
 <body>
   <div class="shell">
     <header class="topbar">
-      <a class="brand" href="#" aria-label="PaisaPlan home">
+      <a class="brand" href="#" aria-label="HiramyaTech home">
         <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
-        <span>PaisaPlan</span>
+        <span>HiramyaTech</span>
       </a>
       <div class="header-actions">
         <span class="secure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z"/></svg> Your data stays private</span>
@@ -57,6 +57,7 @@
               <label class="field"><span>Last name</span><div class="input-wrap"><input id="lastName" type="text" placeholder="Last name" autocomplete="family-name"><svg viewBox="0 0 24 24"><path d="M5 21a7 7 0 0 1 14 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg></div></label>
               <label class="field"><span>Current age</span><div class="input-wrap"><input id="age" type="number" value="32" min="18" max="79"><span class="suffix">years</span></div></label>
               <label class="field"><span>Retire by</span><div class="input-wrap"><input id="retireAge" type="number" value="60" min="35" max="90"><span class="suffix">years</span></div></label>
+              <label class="field"><span>Life expectancy</span><div class="input-wrap"><input id="lifeExpectancy" type="number" value="85" min="50" max="100"><span class="suffix">years</span></div><small>How long do you expect to live? Maximum 100.</small></label>
               <div class="insight full"><span class="bulb">✦</span><p>That gives your money <strong id="yearsGrow">28 years</strong> to grow. Time is your biggest advantage!</p></div>
               <div class="family-section full">
                 <div class="section-title">
@@ -74,13 +75,16 @@
               <span class="panel-icon yellow"><svg viewBox="0 0 24 24"><path d="M4 18h16M7 15V9m5 6V5m5 10v-3"/></svg></span>
               <div><h2>Let’s talk monthly money</h2><p>A quick snapshot of what comes in and goes out.</p></div>
             </div>
-            <div class="form-grid">
-              <label class="field"><span>Monthly take-home income</span><div class="input-wrap money"><span class="prefix">₹</span><input id="income" type="text" inputmode="numeric" value="120000"></div></label>
-              <label class="field"><span>Monthly household expenses</span><div class="input-wrap money"><span class="prefix">₹</span><input id="expenses" type="text" inputmode="numeric" value="65000"></div></label>
-              <label class="field"><span>Monthly investments</span><div class="input-wrap money"><span class="prefix">₹</span><input id="monthlyInvestment" type="text" inputmode="numeric" value="25000"></div><small>SIPs, PPF, NPS and other investments</small></label>
-              <label class="field"><span>Annual income growth</span><div class="input-wrap"><input id="incomeGrowth" type="number" value="7" min="0" max="30" step="0.5"><span class="suffix">%</span></div><small>Expected average yearly increase</small></label>
-              <div class="metric-strip full"><div><small>Monthly surplus</small><strong id="surplus">₹30,000</strong></div><div><small>Savings rate</small><strong id="savingsRate">46%</strong></div><p id="cashHint">A healthy base to build from.</p></div>
+            <div class="cash-flow-table">
+              <div class="cash-flow-head"><span>Cash flow item</span><span>Value</span></div>
+              <div class="cash-flow-row"><label for="income"><strong>Monthly take-home income</strong><small>Income received after deductions</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="income" type="text" inputmode="numeric" value="120000"></div></div>
+              <div class="cash-flow-row"><label for="expenses"><strong>Monthly household expenses</strong><small>Regular living and household costs</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="expenses" type="text" inputmode="numeric" value="65000"></div></div>
+              <div class="cash-flow-row"><label for="loanPayments"><strong>Monthly loan payments</strong><small>Total EMIs and recurring repayments</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="loanPayments" type="text" inputmode="numeric" value="0"></div></div>
+              <div class="cash-flow-row"><label for="monthlyInvestment"><strong>Monthly investments</strong><small>SIPs, PPF, NPS and other investments</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="monthlyInvestment" type="text" inputmode="numeric" value="25000"></div></div>
+              <div class="cash-flow-row"><label for="incomeGrowth"><strong>Annual income growth</strong><small>Expected average yearly increase</small></label><div class="input-wrap"><input id="incomeGrowth" type="number" value="7" min="0" max="30" step="0.5"><span class="suffix">%</span></div></div>
+              <div class="cash-flow-row"><label for="inflationRate"><strong>Anticipated inflation</strong><small>Your expected average annual inflation</small></label><div class="input-wrap"><input id="inflationRate" type="number" value="6" min="0" max="20" step="0.1"><span class="suffix">% / year</span></div></div>
             </div>
+            <div class="metric-strip cash-flow-metrics"><div><small>Monthly surplus</small><strong id="surplus">₹ 30,000</strong></div><div><small>Savings rate</small><strong id="savingsRate">46%</strong></div><p id="cashHint">A healthy base to build from.</p></div>
           </div>
 
           <div class="panel" data-panel="2">
@@ -95,10 +99,10 @@
                   <button type="button" class="add-member" id="addAssetBtn"><span>+</span> Add asset</button>
                 </div>
                 <div class="primary-home-note"><span>⌂</span><p>Enter the home you live in first. If you rent it out to pay for another home’s rent, include it here too. This first row stays editable but is not counted toward your retirement assets.</p></div>
-                <div class="asset-head" aria-hidden="true"><span>Asset type</span><span>Current value</span><span>Return / year</span><span></span></div>
+                <div class="asset-head" aria-hidden="true"><span>Asset type</span><span>Notes</span><span>Current value</span><span>Return / year</span><span></span></div>
                 <div class="asset-list" id="assetList"></div>
                 <div class="empty-family" id="emptyAssets"><span>◇</span><p>No assets added yet.</p></div>
-                <div class="asset-total"><span>Total assets counted for retirement</span><strong id="totalAssets">₹0</strong></div>
+                <div class="asset-total"><span>Total assets counted for retirement</span><strong id="totalAssets">₹ 0</strong></div>
               </div>
               <div class="loan-section full">
                 <div class="section-title">
@@ -109,7 +113,7 @@
                 <div class="loan-list" id="loanList"></div>
                 <div class="empty-family" id="emptyLoans"><span>○</span><p>No outstanding loans added.</p></div>
                 <div class="loan-total">
-                  <div><span>Total outstanding</span><strong id="totalLoans">₹0</strong></div>
+                  <div><span>Total outstanding</span><strong id="totalLoans">₹ 0</strong></div>
                   <div><span>Weighted interest rate</span><strong id="averageLoanRate">0%</strong></div>
                 </div>
               </div>
@@ -129,7 +133,7 @@
               <div class="expense-head" aria-hidden="true"><span>Expense type</span><span>Year</span><span>Anticipated amount</span><span></span></div>
               <div class="expense-list" id="expenseList"></div>
               <div class="empty-family" id="emptyExpenses"><span>◇</span><p>No major expenses added yet.</p></div>
-              <div class="expense-total"><span>Total anticipated expenses</span><strong id="totalExpenses">₹0</strong></div>
+              <div class="expense-total"><span>Total anticipated expenses</span><strong id="totalExpenses">₹ 0</strong></div>
             </div>
             <div class="insight"><span class="bulb">✦</span><p>Earlier expenses have a larger effect because that money has less time to grow toward retirement.</p></div>
           </div>
@@ -147,7 +151,7 @@
               <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Provided through</span><span></span></div>
               <div class="policy-list" id="healthPolicyList"></div>
               <div class="empty-family" id="emptyHealthPolicies"><span>+</span><p>No health policies added.</p></div>
-              <div class="policy-total"><span>Total health cover</span><strong id="totalHealthCover">₹0</strong></div>
+              <div class="policy-total"><span>Total health cover</span><strong id="totalHealthCover">₹ 0</strong></div>
             </div>
             <div class="policy-section term-policy-section">
               <div class="section-title">
@@ -157,7 +161,7 @@
               <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Provided through</span><span></span></div>
               <div class="policy-list" id="termPolicyList"></div>
               <div class="empty-family" id="emptyTermPolicies"><span>+</span><p>No term policies added.</p></div>
-              <div class="policy-total"><span>Total term cover</span><strong id="totalTermCover">₹0</strong></div>
+              <div class="policy-total"><span>Total term cover</span><strong id="totalTermCover">₹ 0</strong></div>
             </div>
             <div class="insight warning"><span class="bulb">!</span><p id="insuranceHint">Consider term cover of at least 10× your annual income, especially if someone depends on you.</p></div>
           </div>
@@ -173,20 +177,49 @@
                 <h3>Plan readiness</h3><p id="scoreCopy">You’re on your way. A few smart changes can close the gap.</p>
               </div>
               <div class="projection-card">
-                <div class="projection-top"><div><small>Projected corpus at retirement</small><strong id="projectedCorpus">₹4.7 Cr</strong></div><div><small>Estimated corpus needed</small><strong id="neededCorpus">₹6.1 Cr</strong></div></div>
+                <div class="projection-top"><div><small>Projected corpus at retirement</small><strong id="projectedCorpus">₹ 4.7 Cr</strong></div><div><small>Estimated corpus needed</small><strong id="neededCorpus">₹ 6.1 Cr</strong></div></div>
+                <div class="chart-caption"><strong>Projected corpus growth</strong><span>Bars show the estimated corpus over time</span></div>
                 <div class="chart" id="growthChart" aria-label="Projected retirement corpus growth chart"></div>
                 <div class="chart-axis"><span>Today</span><span id="midYear">In 14 yrs</span><span id="endYear">Age 60</span></div>
               </div>
             </div>
+            <div class="gauge-section">
+              <div class="gauge-grid">
+                <article class="gauge-card"><div class="mini-gauge" id="healthInsuranceGauge"><div><strong id="healthInsuranceGaugeValue">0%</strong></div></div><div><h3>Health insurance</h3><p id="healthInsuranceGaugeMeta">Health cover readiness</p></div></article>
+                <article class="gauge-card"><div class="mini-gauge" id="termInsuranceGauge"><div><strong id="termInsuranceGaugeValue">0%</strong></div></div><div><h3>Term insurance</h3><p id="termInsuranceGaugeMeta">Term cover readiness</p></div></article>
+                <article class="gauge-card"><div class="mini-gauge" id="retirementGauge"><div><strong id="retirementGaugeValue">0%</strong></div></div><div><h3>Retirement expenses</h3><p id="retirementGaugeMeta">Corpus coverage</p></div></article>
+                <article class="gauge-card"><div class="mini-gauge" id="educationGauge"><div><strong id="educationGaugeValue">—</strong></div></div><div><h3>Children’s education</h3><p id="educationGaugeMeta">No expense entered</p></div></article>
+                <article class="gauge-card"><div class="mini-gauge" id="marriageGauge"><div><strong id="marriageGaugeValue">—</strong></div></div><div><h3>Children’s marriage</h3><p id="marriageGaugeMeta">No expense entered</p></div></article>
+              </div>
+              <p class="gauge-footnote">Goal gauges estimate coverage from the same projected pool of funds; they do not represent separately earmarked investments.</p>
+            </div>
             <div class="recommendations">
               <h3>Your next best moves</h3>
               <div class="rec-grid">
-                <article><span class="rec-icon coral">↗</span><div><small>INCREASE MONTHLY INVESTING TO</small><strong id="recommendedSip">₹37,500</strong><p id="sipGap">That’s ₹12,500 more per month.</p></div></article>
-                <article><span class="rec-icon mint">◎</span><div><small>RETIREMENT INCOME</small><strong id="retirementIncome">₹2.3L / month</strong><p>Estimated in today’s purchasing power.</p></div></article>
+                <article><span class="rec-icon coral">↗</span><div><small>INCREASE MONTHLY INVESTING TO</small><strong id="recommendedSip">₹ 37,500</strong><p id="sipGap">That’s ₹ 12,500 more per month.</p></div></article>
+                <article><span class="rec-icon mint">◎</span><div><small>RETIREMENT INCOME</small><strong id="retirementIncome">₹ 2.3 L / month</strong><p>Estimated in today’s purchasing power.</p></div></article>
                 <article><span class="rec-icon blue">♢</span><div><small>PROTECTION CHECK</small><strong id="protectionStatus">1 gap to close</strong><p id="protectionCopy">Add term life cover to strengthen your safety net.</p></div></article>
               </div>
             </div>
-            <p class="disclaimer">Illustrative estimate based on your inputs and assumed inflation of 6% yearly. Investment returns aren’t guaranteed.</p>
+            <div class="deployment-section">
+              <div class="report-section-head"><div><span class="eyebrow">RETIREMENT PORTFOLIO</span><h3>Deployment</h3><p>Compare the suggested mix with your editable actual allocation.</p></div><div class="return-pill"><div class="mini-gauge return-gauge" id="deploymentReturnGauge"><div><strong id="deploymentReturn">7.7%</strong></div></div><small>RETURN FROM<br>ACTUAL MIX</small></div></div>
+              <div class="deployment-table">
+                <div class="deployment-row deployment-header"><span>Asset class</span><span>Suggested allocation</span><span>Actual allocation</span><span>Assumed return</span><span>Amount at retirement</span></div>
+                <div id="deploymentRows"></div>
+              </div>
+              <div class="allocation-insight" id="allocationInsight"></div>
+            </div>
+            <div class="drawdown-section">
+              <div class="report-section-head"><div><span class="eyebrow">YEAR-BY-YEAR OUTLOOK</span><h3>Retirement drawdown schedule</h3><p>How the fund may change as returns are earned and expenses are withdrawn.</p></div><span class="status-badge" id="scheduleHorizon">Through age 85</span></div>
+              <div class="drawdown-wrap">
+                <table class="drawdown-table">
+                  <thead><tr><th>Year</th><th>Age</th><th>Opening funds</th><th>Returns</th><th>Living expenses</th><th>Major expenses</th><th>Closing funds</th></tr></thead>
+                  <tbody id="drawdownBody"></tbody>
+                </table>
+              </div>
+              <p class="drawdown-note" id="drawdownNote"></p>
+            </div>
+            <p class="disclaimer">Illustrative estimate based on your inputs, including <span id="disclaimerInflation">6%</span> yearly inflation. Investment returns aren’t guaranteed.</p>
           </div>
 
           <div class="form-actions">
