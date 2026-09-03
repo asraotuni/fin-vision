@@ -24,7 +24,7 @@ At the time this file was written, `app.js`, `index.html`, and `styles.css` cont
 
 ## Branding and visual conventions
 
-- Brand name: **HiramyaTech** (formerly PaisaPlan).
+- Brand name: **HiramyaTech**.
 - Main heading: **Your financial planner.**
 - Use INR for all financial values and Indian comma grouping.
 - Always display a visible space after the rupee symbol, for example `₹ 12,34,567` and `₹ 1.5 Cr`.
@@ -53,8 +53,8 @@ Panel and step indices run from `0` through `6`. `showPanel()` calculates the pl
 ## Local persistence
 
 - All test values persist in `localStorage`.
-- Storage key: `paisaplan-test-data-v1`.
-- Keep this old key unless an explicit data migration is implemented; changing it would make the user's test data appear lost.
+- Storage key: `hiramyatech-test-data-v1`.
+- A compatibility migration detects the earlier planner-state key, copies its data to the HiramyaTech key, and removes the obsolete entry after a successful copy.
 - Current migration markers:
   - `riskProfileVersion: 1`
   - `cashFlowBreakdownVersion: 3`

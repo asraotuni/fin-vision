@@ -1,4 +1,4 @@
-# PaisaPlan
+# HiramyaTech Financial Planner
 
 A responsive, dependency-free financial planning prototype. It gathers personal details, cash flow, current wealth, and insurance information across focused steps, then calculates an illustrative retirement outlook.
 
