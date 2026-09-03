@@ -61,9 +61,11 @@ function updateBasics(){
 
 function updateCash(){
   const income = value('income');
-  const loanPayments = value('loanPayments');
-  const surplus = income - value('expenses') - loanPayments - value('monthlyInvestment');
-  const totalSaved = Math.max(0, income - value('expenses') - loanPayments);
+  const monthlyExpenses = value('groceryExpenses') + value('utilityBills') + value('healthInsurancePremiums') + value('termInsurancePremiums') +
+    value('loanPayments') + value('rentExpense') + value('societyMaintenance') + value('otherExpenses');
+  $('expenses').value = indianNumber(monthlyExpenses);
+  const surplus = income - monthlyExpenses - value('monthlyInvestment');
+  const totalSaved = Math.max(0, income - monthlyExpenses);
   $('surplus').textContent = money(surplus);
   $('surplus').style.color = surplus < 0 ? '#d95643' : '';
   $('savingsRate').textContent = `${income ? Math.round(totalSaved / income * 100) : 0}%`;
@@ -71,8 +73,38 @@ function updateCash(){
   setStatusTone(document.querySelector('.metric-strip'), surplus < 0 ? 'bad' : totalSaved / Math.max(1, income) >= .3 ? 'good' : 'alert');
 }
 
+function remainingIncomeReplacementYears(){
+  return Math.max(0, Math.min(10, value('retireAge') - value('age')));
+}
+
+function termCoverNeed(){
+  return value('income') * 12 * remainingIncomeReplacementYears();
+}
+
+function monthlyRetirementLivingExpenses(){
+  return Math.max(0, value('expenses') - value('loanPayments') - value('termInsurancePremiums'));
+}
+
+function updateRiskProfile(){
+  const scoredAnswers = [...document.querySelectorAll('[data-risk-score]:checked')];
+  const score = scoredAnswers.reduce((sum, answer) => sum + Number(answer.dataset.riskScore), 0);
+  const maximum = new Set([...document.querySelectorAll('[data-risk-score]')].map(answer => answer.name)).size * 3;
+  const percentage = maximum ? Math.round(score / maximum * 100) : 0;
+  const profile = percentage <= 35
+    ? {label:'Conservative', className:'profile-conservative', copy:'You prioritise capital stability and may be less comfortable with market declines.'}
+    : percentage <= 70
+      ? {label:'Moderate', className:'profile-moderate', copy:'You appear comfortable balancing long-term growth with stability.'}
+      : {label:'Growth-oriented', className:'profile-growth', copy:'You appear able and willing to accept larger fluctuations for long-term growth.'};
+  const result = $('riskResult');
+  result.classList.remove('profile-conservative', 'profile-moderate', 'profile-growth');
+  result.classList.add(profile.className);
+  $('riskProfileLabel').textContent = profile.label;
+  $('riskProfileCopy').textContent = profile.copy;
+  $('riskMeterFill').style.width = `${percentage}%`;
+}
+
 function isCurrencyInput(input){
-  return input.matches('.money input, .asset-value, .loan-balance, .policy-cover, .expense-amount');
+  return input.matches('.money input, .asset-value, .loan-balance, .policy-cover, .policy-premium, .expense-amount');
 }
 
 function formatCurrencyInput(input){
@@ -81,7 +113,7 @@ function formatCurrencyInput(input){
 }
 
 function prepareCurrencyInputs(){
-  document.querySelectorAll('.money input, .asset-value, .loan-balance, .policy-cover, .expense-amount').forEach(input => {
+  document.querySelectorAll('.money input, .asset-value, .loan-balance, .policy-cover, .policy-premium, .expense-amount').forEach(input => {
     input.type = 'text';
     input.inputMode = 'numeric';
     formatCurrencyInput(input);
@@ -168,7 +200,7 @@ function calculatePlan(){
       return sum + expense.amount * Math.pow(1 + returnRate / 100, Math.max(0, years - yearsUntilExpense));
     }, 0);
   const projected = Math.max(0, projectedAssets - totalLoanValue + futureValue(0, monthly, returnRate, years) - preRetirementExpenseImpact);
-  const retirementExpenseMonthly = value('expenses') * Math.pow(1 + inflation, years);
+  const retirementExpenseMonthly = monthlyRetirementLivingExpenses() * Math.pow(1 + inflation, years);
   const firstYearRetirementExpense = retirementExpenseMonthly * 12;
   let needed = 0;
   for(let yearIndex = 0; yearIndex < retirementYears; yearIndex++){
@@ -216,7 +248,7 @@ function calculatePlan(){
   setStatusTone($('scoreRing'), planTone);
   setStatusTone($('statusBadge'), planTone);
   setStatusTone($('growthChart'), gaugeScores.retirementScore >= 90 ? 'good' : gaugeScores.retirementScore >= 60 ? 'alert' : 'bad');
-  setStatusTone($('recommendedSip').closest('article'), recommended <= monthly ? 'good' : recommended - monthly <= Math.max(0, value('income') - value('expenses') - value('loanPayments') - monthly) ? 'alert' : 'bad');
+  setStatusTone($('recommendedSip').closest('article'), recommended <= monthly ? 'good' : recommended - monthly <= Math.max(0, value('income') - value('expenses') - monthly) ? 'alert' : 'bad');
   setStatusTone($('retirementIncome').closest('article'), planTone);
   setStatusTone($('protectionStatus').closest('article'), gaps === 0 ? 'good' : gaps === 1 ? 'alert' : 'bad');
   renderChart(retirementAssets, monthly, returnRate, years, needed, totalLoanValue, expenseItems, currentYear);
@@ -366,19 +398,22 @@ function calculatePlanGaugeScores({projected, needed, retirementAssets, monthly,
   const retirementScore = needed ? Math.min(100, projected / needed * 100) : 100;
   const healthCover = policies('health').reduce((sum, policy) => sum + policy.cover, 0);
   const termCover = policies('term').reduce((sum, policy) => sum + policy.cover, 0);
-  const targetHealth = Math.max(1000000, value('expenses') * 12);
-  const targetTerm = Math.max(1, value('income') * 12 * 10);
+  const targetHealth = Math.max(1000000, monthlyRetirementLivingExpenses() * 12);
+  const termIncomeYears = remainingIncomeReplacementYears();
+  const targetTerm = termCoverNeed();
   const healthScore = Math.min(100, healthCover / targetHealth * 100);
-  const termScore = Math.min(100, termCover / targetTerm * 100);
+  const termScore = targetTerm > 0 ? Math.min(100, termCover / targetTerm * 100) : 100;
   const education = goalReadiness(text => text.includes('education'), retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear);
   const marriage = goalReadiness(text => text.includes('marriage'), retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear);
-  return {retirementScore, healthScore, termScore, healthCover, termCover, targetHealth, targetTerm, education, marriage};
+  return {retirementScore, healthScore, termScore, healthCover, termCover, targetHealth, targetTerm, termIncomeYears, education, marriage};
 }
 
 function renderPlanGauges(scores, projected, needed){
   renderGauge('retirement', scores.retirementScore, `${compactMoney(projected)} of ${compactMoney(needed)} needed`);
   renderGauge('healthInsurance', scores.healthScore, `${compactMoney(scores.healthCover)} of ${compactMoney(scores.targetHealth)} target`);
-  renderGauge('termInsurance', scores.termScore, `${compactMoney(scores.termCover)} of ${compactMoney(scores.targetTerm)} target`);
+  renderGauge('termInsurance', scores.termScore, scores.termIncomeYears > 0
+    ? `${compactMoney(scores.termCover)} of ${compactMoney(scores.targetTerm)} target (${scores.termIncomeYears} income year${scores.termIncomeYears === 1 ? '' : 's'})`
+    : 'No income-replacement target after retirement');
   renderGauge('education', scores.education.score, scores.education.score === null ? 'No expense entered' : `${compactMoney(scores.education.total)} anticipated`);
   renderGauge('marriage', scores.marriage.score, scores.marriage.score === null ? 'No expense entered' : `${compactMoney(scores.marriage.total)} anticipated`);
 }
@@ -493,6 +528,7 @@ function addPolicy(kind, policy = {}, shouldFocus = true){
       <input class="family-input custom-insurer${isCustom ? '' : ' hidden'}" type="text" aria-label="Custom insurer name" placeholder="Enter insurer name" value="${escapeText(policy.customInsurer || '')}">
     </div>
     <div class="asset-money"><span>₹</span><input class="family-input policy-cover" type="text" inputmode="numeric" aria-label="Policy cover amount" placeholder="Cover" value="${policy.cover ?? ''}"></div>
+    <div class="asset-money"><span>₹</span><input class="family-input policy-premium" type="text" inputmode="numeric" aria-label="Monthly policy premium" placeholder="Monthly" value="${policy.premium ?? ''}"></div>
     <select class="family-input policy-source" aria-label="Policy provided through">
       <option${policy.source !== 'Employer provided' ? ' selected' : ''}>Personally taken</option>
       <option${policy.source === 'Employer provided' ? ' selected' : ''}>Employer provided</option>
@@ -513,6 +549,7 @@ function policies(kind){
     insurer: row.querySelector('.insurer-select').value,
     customInsurer: row.querySelector('.custom-insurer').value,
     cover: numericValue(row.querySelector('.policy-cover')),
+    premium: numericValue(row.querySelector('.policy-premium')),
     source: row.querySelector('.policy-source').value
   }));
 }
@@ -522,16 +559,21 @@ function updateProtectionSummary(){
   const termPolicies = policies('term');
   const healthCover = healthPolicies.reduce((sum, policy) => sum + policy.cover, 0);
   const termCover = termPolicies.reduce((sum, policy) => sum + policy.cover, 0);
+  const healthPremium = healthPolicies.reduce((sum, policy) => sum + policy.premium, 0);
+  const termPremium = termPolicies.reduce((sum, policy) => sum + policy.premium, 0);
   $('totalHealthCover').textContent = money(healthCover);
   $('totalTermCover').textContent = money(termCover);
+  $('totalHealthPremium').textContent = money(healthPremium);
+  $('totalTermPremium').textContent = money(termPremium);
   $('emptyHealthPolicies').classList.toggle('hidden', healthPolicies.length > 0);
   $('emptyTermPolicies').classList.toggle('hidden', termPolicies.length > 0);
-  const suggestedTermCover = value('income') * 12 * 10;
+  const suggestedTermCover = termCoverNeed();
+  const incomeYears = remainingIncomeReplacementYears();
   if(!healthCover){
     $('insuranceHint').textContent = 'Add health cover to protect your savings from unexpected medical costs.';
     setStatusTone(document.querySelector('.warning'), 'bad');
-  } else if(!termCover || termCover < suggestedTermCover){
-    $('insuranceHint').textContent = `Consider total term cover of around ${money(suggestedTermCover)}, especially if someone depends on you.`;
+  } else if(suggestedTermCover > 0 && (!termCover || termCover < suggestedTermCover)){
+    $('insuranceHint').textContent = `Consider total term cover of around ${money(suggestedTermCover)} to replace ${incomeYears} remaining year${incomeYears === 1 ? '' : 's'} of income until retirement.`;
     setStatusTone(document.querySelector('.warning'), 'alert');
   } else {
     $('insuranceHint').textContent = 'Your core protection is recorded. Review cover amounts and nominees every year.';
@@ -625,8 +667,8 @@ function familyMembers(){
 
 function saveState(){
   const fields = {};
-  document.querySelectorAll('#plannerForm input[id]').forEach(input => {
-    fields[input.id] = isCurrencyInput(input) ? String(numericValue(input)) : input.value;
+  document.querySelectorAll('#plannerForm input[id], #plannerForm select[id]').forEach(field => {
+    fields[field.id] = field.type === 'radio' ? field.checked : isCurrencyInput(field) ? String(numericValue(field)) : field.value;
   });
   const state = {
     fields,
@@ -638,6 +680,8 @@ function saveState(){
     termPolicies: policies('term'),
     deploymentAllocations,
     deploymentReturns,
+    riskProfileVersion: 1,
+    cashFlowBreakdownVersion: 3,
     currentStep: current
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(error) { console.warn('Could not save planner data.', error); }
@@ -648,8 +692,20 @@ function restoreState(){
     const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if(!state) return 0;
     Object.entries(state.fields || {}).forEach(([id, savedValue]) => {
-      if($(id)) $(id).value = savedValue;
+      if(!$(id)) return;
+      if($(id).type === 'radio') $(id).checked = savedValue === true || savedValue === 'true';
+      else $(id).value = savedValue;
     });
+    if(!state.cashFlowBreakdownVersion){
+      ['groceryExpenses','utilityBills','healthInsurancePremiums','termInsurancePremiums','rentExpense','societyMaintenance'].forEach(id => { $(id).value = '0'; });
+      $('otherExpenses').value = String(parseAmount(state.fields?.expenses));
+    } else if(state.cashFlowBreakdownVersion === 1){
+      $('healthInsurancePremiums').value = String(Math.round(parseAmount(state.fields?.annualInsurancePremiums) / 12));
+      $('termInsurancePremiums').value = '0';
+    } else if(state.cashFlowBreakdownVersion === 2){
+      $('healthInsurancePremiums').value = String(parseAmount(state.fields?.insurancePremiums));
+      $('termInsurancePremiums').value = '0';
+    }
     (state.family || []).forEach(member => addFamilyMember(member, false));
     if(Array.isArray(state.assets)){
       restoredAssetList = true;
@@ -694,7 +750,8 @@ function restoreState(){
           : Math.min(30, Math.max(0, Number(state.deploymentReturns[item.name]) || 0))
       ]));
     }
-    return Number.isInteger(state.currentStep) ? state.currentStep : 0;
+    const savedStep = Number.isInteger(state.currentStep) ? state.currentStep : 0;
+    return state.riskProfileVersion || savedStep < 2 ? savedStep : savedStep + 1;
   } catch(error) {
     console.warn('Could not restore planner data.', error);
     return 0;
@@ -707,10 +764,10 @@ function showPanel(index){
   steps.forEach((s,i) => { s.classList.toggle('active',i===current); s.classList.toggle('done',i<current); });
   backBtn.disabled = current === 0;
   stepCount.textContent = `Step ${current + 1} of ${panels.length}`;
-  const labels = ['Next: Cash flow','Next: Your wealth','Next: Major expenses','Next: Protection','See my plan','Download report'];
+  const labels = ['Next: Cash flow','Next: Risk profile','Next: Your wealth','Next: Major expenses','Next: Protection','See my plan','Download report'];
   const actionIcon = current === panels.length - 1 ? '↓' : '→';
   nextBtn.innerHTML = `${labels[current]} <span>${actionIcon}</span>`;
-  if(current === 5) calculatePlan();
+  if(current === panels.length - 1) calculatePlan();
   saveState();
   document.querySelector('.planner-card').scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -733,8 +790,9 @@ $('addHealthPolicyBtn').addEventListener('click', () => { addPolicy('health'); s
 $('addTermPolicyBtn').addEventListener('click', () => { addPolicy('term'); saveState(); });
 document.querySelectorAll('input').forEach(input => input.addEventListener('input', () => {
   if(isCurrencyInput(input)) formatCurrencyInput(input);
-  updateBasics(); updateCash(); updateProtectionSummary(); saveState();
+  updateBasics(); updateCash(); updateRiskProfile(); updateProtectionSummary(); saveState();
 }));
+document.querySelectorAll('select[id]').forEach(select => select.addEventListener('change', saveState));
 $('familyList').addEventListener('input', saveState);
 $('familyList').addEventListener('change', saveState);
 $('assetList').addEventListener('input', event => {
@@ -822,4 +880,4 @@ if(!restoredAssetList){
   addAsset({type:'Mutual funds', value:500000, returnRate:11}, false);
 }
 prepareCurrencyInputs();
-updateBasics(); updateCash(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateProtectionSummary(); showPanel(restoredStep);
+updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateProtectionSummary(); showPanel(restoredStep);

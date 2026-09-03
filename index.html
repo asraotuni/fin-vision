@@ -36,13 +36,15 @@
         <span class="step-line"></span>
         <button class="step" data-step="1"><span class="step-number">2</span><span><b>Cash flow</b><small>Money in & out</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="2"><span class="step-number">3</span><span><b>Your wealth</b><small>What you’ve built</small></span></button>
+        <button class="step" data-step="2"><span class="step-number">3</span><span><b>Risk profile</b><small>Comfort & capacity</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="3"><span class="step-number">4</span><span><b>Major expenses</b><small>What lies ahead</small></span></button>
+        <button class="step" data-step="3"><span class="step-number">4</span><span><b>Your wealth</b><small>What you’ve built</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="4"><span class="step-number">5</span><span><b>Protection</b><small>Your safety net</small></span></button>
+        <button class="step" data-step="4"><span class="step-number">5</span><span><b>Major expenses</b><small>What lies ahead</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="5"><span class="step-number">6</span><span><b>Your plan</b><small>The big picture</small></span></button>
+        <button class="step" data-step="5"><span class="step-number">6</span><span><b>Protection</b><small>Your safety net</small></span></button>
+        <span class="step-line"></span>
+        <button class="step" data-step="6"><span class="step-number">7</span><span><b>Your plan</b><small>The big picture</small></span></button>
       </nav>
 
       <section class="planner-card">
@@ -77,9 +79,17 @@
             </div>
             <div class="cash-flow-table">
               <div class="cash-flow-head"><span>Cash flow item</span><span>Value</span></div>
+              <div class="cash-flow-row"><label for="vocation"><strong>Vocation</strong><small>Your primary source of work or income</small></label><div class="input-wrap"><select id="vocation" aria-label="Vocation"><option>Employment</option><option>Self-employment</option><option>Business</option><option>Trading</option><option>Professional</option><option>Other</option></select></div></div>
               <div class="cash-flow-row"><label for="income"><strong>Monthly take-home income</strong><small>Income received after deductions</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="income" type="text" inputmode="numeric" value="120000"></div></div>
-              <div class="cash-flow-row"><label for="expenses"><strong>Monthly household expenses</strong><small>Regular living and household costs</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="expenses" type="text" inputmode="numeric" value="65000"></div></div>
-              <div class="cash-flow-row"><label for="loanPayments"><strong>Monthly loan payments</strong><small>Total EMIs and recurring repayments</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="loanPayments" type="text" inputmode="numeric" value="0"></div></div>
+              <div class="cash-flow-row compact-expense-row expense-breakdown-start"><label for="rentExpense"><strong>Rent</strong><small>Monthly home or accommodation rent</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="rentExpense" type="text" inputmode="numeric" value="25000"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="societyMaintenance"><strong>Society maintenance</strong><small>Monthly apartment or community charges</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="societyMaintenance" type="text" inputmode="numeric" value="3000"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="groceryExpenses"><strong>Groceries</strong><small>Food and regular household purchases</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="groceryExpenses" type="text" inputmode="numeric" value="20000"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="utilityBills"><strong>Bills</strong><small>Utilities, phone, internet and subscriptions</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="utilityBills" type="text" inputmode="numeric" value="8000"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="healthInsurancePremiums"><strong>Health-insurance premium</strong><small>Total monthly premium amount</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="healthInsurancePremiums" type="text" inputmode="numeric" value="3500"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="termInsurancePremiums"><strong>Term-insurance premium</strong><small>Total monthly premium amount</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="termInsurancePremiums" type="text" inputmode="numeric" value="1500"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="loanPayments"><strong>EMIs</strong><small>Monthly loan and debt repayments</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="loanPayments" type="text" inputmode="numeric" value="0"></div></div>
+              <div class="cash-flow-row compact-expense-row"><label for="otherExpenses"><strong>Other expenses</strong><small>Transport, leisure and remaining regular costs</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="otherExpenses" type="text" inputmode="numeric" value="4000"></div></div>
+              <div class="cash-flow-row derived-expense-row"><label for="expenses"><strong>Monthly household expenses</strong><small>Calculated from the expense items above</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="expenses" type="text" inputmode="numeric" value="65000" readonly aria-readonly="true" tabindex="-1"></div></div>
               <div class="cash-flow-row"><label for="monthlyInvestment"><strong>Monthly investments</strong><small>SIPs, PPF, NPS and other investments</small></label><div class="input-wrap money"><span class="prefix">₹</span><input id="monthlyInvestment" type="text" inputmode="numeric" value="25000"></div></div>
               <div class="cash-flow-row"><label for="incomeGrowth"><strong>Annual income growth</strong><small>Expected average yearly increase</small></label><div class="input-wrap"><input id="incomeGrowth" type="number" value="7" min="0" max="30" step="0.5"><span class="suffix">%</span></div></div>
               <div class="cash-flow-row"><label for="inflationRate"><strong>Anticipated inflation</strong><small>Your expected average annual inflation</small></label><div class="input-wrap"><input id="inflationRate" type="number" value="6" min="0" max="20" step="0.1"><span class="suffix">% / year</span></div></div>
@@ -88,6 +98,104 @@
           </div>
 
           <div class="panel" data-panel="2">
+            <div class="panel-heading">
+              <span class="panel-icon blue"><svg viewBox="0 0 24 24"><path d="M4 18 9 13l3 3 7-9M4 6h5M4 10h3"/></svg></span>
+              <div><h2>Understand your risk profile</h2><p>Your comfort with risk and your ability to absorb market changes are both important.</p></div>
+            </div>
+            <div class="risk-profile-grid">
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionReserve">
+                <div class="risk-question-copy"><h3 id="riskQuestionReserve">How many months of expenses are available as emergency savings?</h3>
+                <p>This is a key measure of your financial capacity to take risk.</p></div>
+                <div class="risk-options">
+                  <label><input id="reserve3" type="radio" name="emergencyReserve" value="Less than 3 months" data-risk-score="0"><span>Under 3 months</span></label>
+                  <label><input id="reserve6" type="radio" name="emergencyReserve" value="3 to 6 months" data-risk-score="1"><span>3–6 months</span></label>
+                  <label><input id="reserve12" type="radio" name="emergencyReserve" value="6 to 12 months" data-risk-score="2" checked><span>6–12 months</span></label>
+                  <label><input id="reserveLong" type="radio" name="emergencyReserve" value="More than 12 months" data-risk-score="3"><span>Over 12 months</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionPension">
+                <div class="risk-question-copy"><h3 id="riskQuestionPension">How would you prefer to build your pension income?</h3>
+                <p>Choose the approach that feels most suitable for retirement.</p></div>
+                <div class="risk-options">
+                  <label><input id="pensionProduct" type="radio" name="pensionPreference" value="Pension product" data-risk-score="0"><span>Pension product</span></label>
+                  <label><input id="pensionNps" type="radio" name="pensionPreference" value="NPS / EPF" data-risk-score="1"><span>NPS / EPF</span></label>
+                  <label><input id="pensionBlend" type="radio" name="pensionPreference" value="Balanced combination" data-risk-score="2" checked><span>Balanced combination</span></label>
+                  <label><input id="pensionMf" type="radio" name="pensionPreference" value="Mutual funds" data-risk-score="3"><span>Mutual funds</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionHealth">
+                <div class="risk-question-copy"><h3 id="riskQuestionHealth">What is adequate family health-insurance coverage?</h3>
+                <p>Assume the selected cover will be increased with medical inflation.</p></div>
+                <div class="risk-options">
+                  <label><input id="healthTarget25" type="radio" name="healthCoverPreference" value="25 lakh"><span>₹ 25 lakh, inflation-adjusted</span></label>
+                  <label><input id="healthTarget50" type="radio" name="healthCoverPreference" value="50 lakh" checked><span>₹ 50 lakh, inflation-adjusted</span></label>
+                  <label><input id="healthTarget100" type="radio" name="healthCoverPreference" value="1 crore"><span>₹ 1 crore, inflation-adjusted</span></label>
+                  <label><input id="healthTarget200" type="radio" name="healthCoverPreference" value="2 crore or more"><span>₹ 2 crore or more, inflation-adjusted</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionTerm">
+                <div class="risk-question-copy"><h3 id="riskQuestionTerm">What term-life cover does your family require?</h3>
+                <p>Expressed as a multiple of your current annual income.</p></div>
+                <div class="risk-options">
+                  <label><input id="termTarget5" type="radio" name="termCoverPreference" value="5x annual income"><span>5× annual income</span></label>
+                  <label><input id="termTarget10" type="radio" name="termCoverPreference" value="10x annual income" checked><span>10× annual income</span></label>
+                  <label><input id="termTarget15" type="radio" name="termCoverPreference" value="15x annual income"><span>15× annual income</span></label>
+                  <label><input id="termTarget20" type="radio" name="termCoverPreference" value="20x annual income or more"><span>20× or more</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionFall">
+                <div class="risk-question-copy"><h3 id="riskQuestionFall">If your investments fell 20%, what would you most likely do?</h3>
+                <p>This measures your emotional tolerance for market volatility.</p></div>
+                <div class="risk-options">
+                  <label><input id="fallExit" type="radio" name="marketFallReaction" value="Exit investments" data-risk-score="0"><span>Exit investments</span></label>
+                  <label><input id="fallReduce" type="radio" name="marketFallReaction" value="Reduce exposure" data-risk-score="1"><span>Reduce exposure</span></label>
+                  <label><input id="fallHold" type="radio" name="marketFallReaction" value="Hold and wait" data-risk-score="2" checked><span>Hold and wait</span></label>
+                  <label><input id="fallInvest" type="radio" name="marketFallReaction" value="Invest more" data-risk-score="3"><span>Invest more</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionHorizon">
+                <div class="risk-question-copy"><h3 id="riskQuestionHorizon">When will you need most of this invested money?</h3>
+                <p>A longer horizon generally allows more time to recover from declines.</p></div>
+                <div class="risk-options">
+                  <label><input id="horizon3" type="radio" name="investmentHorizon" value="Less than 3 years" data-risk-score="0"><span>Under 3 years</span></label>
+                  <label><input id="horizon5" type="radio" name="investmentHorizon" value="3 to 5 years" data-risk-score="1"><span>3–5 years</span></label>
+                  <label><input id="horizon10" type="radio" name="investmentHorizon" value="5 to 10 years" data-risk-score="2" checked><span>5–10 years</span></label>
+                  <label><input id="horizonLong" type="radio" name="investmentHorizon" value="More than 10 years" data-risk-score="3"><span>Over 10 years</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionIncome">
+                <div class="risk-question-copy"><h3 id="riskQuestionIncome">How stable is your household income?</h3>
+                <p>Consider income predictability and the number of earning members.</p></div>
+                <div class="risk-options">
+                  <label><input id="incomeVariable" type="radio" name="incomeStability" value="Highly variable" data-risk-score="0"><span>Highly variable</span></label>
+                  <label><input id="incomeSomewhat" type="radio" name="incomeStability" value="Somewhat stable" data-risk-score="1"><span>Somewhat stable</span></label>
+                  <label><input id="incomeStable" type="radio" name="incomeStability" value="Stable" data-risk-score="2" checked><span>Stable</span></label>
+                  <label><input id="incomeVeryStable" type="radio" name="incomeStability" value="Very stable" data-risk-score="3"><span>Very stable</span></label>
+                </div>
+              </div>
+
+              <div class="risk-question" role="group" aria-labelledby="riskQuestionEquity">
+                <div class="risk-question-copy"><h3 id="riskQuestionEquity">What equity allocation could you hold through market declines?</h3>
+                <p>Choose an allocation you could retain without losing sleep.</p></div>
+                <div class="risk-options">
+                  <label><input id="equityNone" type="radio" name="equityComfort" value="No equity" data-risk-score="0"><span>No equity</span></label>
+                  <label><input id="equity25" type="radio" name="equityComfort" value="Up to 25%" data-risk-score="1"><span>Up to 25%</span></label>
+                  <label><input id="equity50" type="radio" name="equityComfort" value="25% to 50%" data-risk-score="2" checked><span>25–50%</span></label>
+                  <label><input id="equityHigh" type="radio" name="equityComfort" value="More than 50%" data-risk-score="3"><span>Over 50%</span></label>
+                </div>
+              </div>
+            </div>
+            <div class="risk-result" id="riskResult"><div><small>ESTIMATED RISK PROFILE</small><strong id="riskProfileLabel">Moderate</strong></div><div class="risk-meter"><i id="riskMeterFill"></i></div><p id="riskProfileCopy">You appear comfortable balancing growth with stability.</p></div>
+            <p class="risk-disclaimer">This questionnaire is an educational indication, not a regulated suitability assessment.</p>
+          </div>
+
+          <div class="panel" data-panel="3">
             <div class="panel-heading">
               <span class="panel-icon mint"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM7 7V5h10v2m-9 5h8"/></svg></span>
               <div><h2>What have you built so far?</h2><p>Add everything you own that contributes to your financial picture.</p></div>
@@ -120,7 +228,7 @@
             </div>
           </div>
 
-          <div class="panel" data-panel="3">
+          <div class="panel" data-panel="4">
             <div class="panel-heading">
               <span class="panel-icon yellow"><svg viewBox="0 0 24 24"><path d="M5 8h14v11H5zM8 5v6m8-6v6m-8 3h3"/></svg></span>
               <div><h2>Plan for life’s big moments</h2><p>Set aside major future costs before calculating retirement readiness.</p></div>
@@ -138,7 +246,7 @@
             <div class="insight"><span class="bulb">✦</span><p>Earlier expenses have a larger effect because that money has less time to grow toward retirement.</p></div>
           </div>
 
-          <div class="panel" data-panel="4">
+          <div class="panel" data-panel="5">
             <div class="panel-heading">
               <span class="panel-icon blue"><svg viewBox="0 0 24 24"><path d="m12 3 7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6l7-3Z"/></svg></span>
               <div><h2>Protect the plan</h2><p>Good insurance keeps surprises from derailing your goals.</p></div>
@@ -148,25 +256,25 @@
                 <div><h3>Health insurance</h3><p>Add personal and employer-provided health policies.</p></div>
                 <button type="button" class="add-member" id="addHealthPolicyBtn"><span>+</span> Add health policy</button>
               </div>
-              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Provided through</span><span></span></div>
+              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Monthly premium</span><span>Provided through</span><span></span></div>
               <div class="policy-list" id="healthPolicyList"></div>
               <div class="empty-family" id="emptyHealthPolicies"><span>+</span><p>No health policies added.</p></div>
-              <div class="policy-total"><span>Total health cover</span><strong id="totalHealthCover">₹ 0</strong></div>
+              <div class="policy-total"><span>Total health cover</span><strong id="totalHealthCover">₹ 0</strong><span>Monthly premiums</span><strong id="totalHealthPremium">₹ 0</strong></div>
             </div>
             <div class="policy-section term-policy-section">
               <div class="section-title">
                 <div><h3>Term life insurance</h3><p>Add every term policy currently covering you.</p></div>
                 <button type="button" class="add-member" id="addTermPolicyBtn"><span>+</span> Add term policy</button>
               </div>
-              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Provided through</span><span></span></div>
+              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Monthly premium</span><span>Provided through</span><span></span></div>
               <div class="policy-list" id="termPolicyList"></div>
               <div class="empty-family" id="emptyTermPolicies"><span>+</span><p>No term policies added.</p></div>
-              <div class="policy-total"><span>Total term cover</span><strong id="totalTermCover">₹ 0</strong></div>
+              <div class="policy-total"><span>Total term cover</span><strong id="totalTermCover">₹ 0</strong><span>Monthly premiums</span><strong id="totalTermPremium">₹ 0</strong></div>
             </div>
-            <div class="insight warning"><span class="bulb">!</span><p id="insuranceHint">Consider term cover of at least 10× your annual income, especially if someone depends on you.</p></div>
+            <div class="insight warning"><span class="bulb">!</span><p id="insuranceHint">Term-cover guidance is based on your annual income and the years remaining until retirement, capped at 10 years.</p></div>
           </div>
 
-          <div class="panel results-panel" data-panel="5">
+          <div class="panel results-panel" data-panel="6">
             <div class="results-head">
               <div><span class="eyebrow">YOUR RETIREMENT OUTLOOK</span><h2><span id="resultName">You’re</span> building something meaningful.</h2><p>Here’s what your current path could look like.</p></div>
               <span class="status-badge" id="statusBadge">A promising start</span>
@@ -224,7 +332,7 @@
 
           <div class="form-actions">
             <button type="button" class="back" id="backBtn">← Back</button>
-            <span class="step-count" id="stepCount">Step 1 of 5</span>
+            <span class="step-count" id="stepCount">Step 1 of 7</span>
             <button type="button" class="next" id="nextBtn">Next: Cash flow <span>→</span></button>
           </div>
         </form>
