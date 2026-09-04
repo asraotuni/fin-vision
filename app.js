@@ -18,6 +18,7 @@ const POLICY_INSURERS = {
   health: ['Not specified', 'ICICI Lombard', 'HDFC ERGO', 'Star Health', 'Niva Bupa', 'Care Health', 'Aditya Birla Health', 'New India Assurance', 'United India Insurance', 'Other / custom'],
   term: ['Not specified', 'ICICI Prudential', 'LIC', 'HDFC Life', 'SBI Life', 'Max Life', 'Tata AIA', 'Bajaj Allianz Life', 'Kotak Life', 'Other / custom']
 };
+const EMERGENCY_FUND_LOCATIONS = ['Savings account', 'Sweep-in fixed deposit', 'Fixed deposit', 'Liquid mutual fund', 'Cash', 'Other / custom'];
 const EXPENSE_TYPES = ['Son’s marriage', 'Daughter’s marriage', 'Son’s education', 'Daughter’s education', 'Other / custom'];
 const RETIREMENT_ALLOCATION = [
   {name:'Real estate', suggestedAllocation:10, returnRate:7.5},
@@ -32,6 +33,7 @@ let memberCount = 0;
 let assetCount = 0;
 let loanCount = 0;
 let policyCount = 0;
+let emergencyFundCount = 0;
 let expenseCount = 0;
 let restoredAssetList = false;
 let deploymentAllocations = null;
@@ -448,6 +450,7 @@ function addAsset(asset = {}, shouldFocus = true){
   if(removeButton) removeButton.addEventListener('click', () => {
       row.remove();
       updateAssetSummary();
+      updateExpenseSummary();
       saveState();
     });
   if(isExcluded && $('assetList').firstChild){
@@ -456,6 +459,7 @@ function addAsset(asset = {}, shouldFocus = true){
     $('assetList').appendChild(row);
   }
   updateAssetSummary();
+  updateExpenseSummary();
   if(shouldFocus) row.querySelector('.asset-type').focus();
 }
 
@@ -491,10 +495,12 @@ function addLoan(loan = {}, shouldFocus = true){
   row.querySelector('.remove-member').addEventListener('click', () => {
     row.remove();
     updateLoanSummary();
+    updateExpenseSummary();
     saveState();
   });
   $('loanList').appendChild(row);
   updateLoanSummary();
+  updateExpenseSummary();
   if(shouldFocus) row.querySelector('.loan-type').focus();
 }
 
@@ -515,6 +521,55 @@ function updateLoanSummary(){
   $('totalLoans').textContent = money(total);
   $('averageLoanRate').textContent = `${weightedRate.toFixed(weightedRate % 1 ? 1 : 0)}%`;
   $('emptyLoans').classList.toggle('hidden', $('loanList').children.length > 0);
+}
+
+function addEmergencyFund(fund = {}, shouldFocus = true){
+  emergencyFundCount += 1;
+  const selectedLocation = EMERGENCY_FUND_LOCATIONS.includes(fund.location) ? fund.location : 'Savings account';
+  const isCustom = selectedLocation === 'Other / custom';
+  const row = document.createElement('div');
+  row.className = 'emergency-row';
+  row.dataset.emergencyFundId = emergencyFundCount;
+  row.innerHTML = `
+    <div class="emergency-location-control">
+      <select class="family-input emergency-location" aria-label="Where emergency fund is saved">
+        ${EMERGENCY_FUND_LOCATIONS.map(location => `<option${selectedLocation === location ? ' selected' : ''}>${location}</option>`).join('')}
+      </select>
+      <input class="family-input custom-emergency-location${isCustom ? '' : ' hidden'}" type="text" aria-label="Custom emergency fund location" placeholder="Where is it saved?" value="${escapeText(fund.customLocation || '')}">
+    </div>
+    <div class="asset-money"><span>₹</span><input class="family-input emergency-amount" type="text" inputmode="numeric" aria-label="Emergency fund amount" placeholder="Amount" value="${fund.amount ?? ''}"></div>
+    <input class="family-input emergency-notes" type="text" aria-label="Emergency fund notes" placeholder="Bank, account or access details" value="${escapeText(fund.notes || '')}">
+    <button type="button" class="remove-member" aria-label="Remove emergency fund">×</button>`;
+  row.querySelector('.remove-member').addEventListener('click', () => {
+    row.remove();
+    updateEmergencyFundSummary();
+    saveState();
+  });
+  $('emergencyFundList').appendChild(row);
+  updateEmergencyFundSummary();
+  if(shouldFocus) row.querySelector('.emergency-location').focus();
+}
+
+function emergencyFunds(){
+  return [...$('emergencyFundList').querySelectorAll('.emergency-row')].map(row => ({
+    location: row.querySelector('.emergency-location').value,
+    customLocation: row.querySelector('.custom-emergency-location').value.trim(),
+    amount: numericValue(row.querySelector('.emergency-amount')),
+    notes: row.querySelector('.emergency-notes').value.trim()
+  }));
+}
+
+function updateEmergencyFundSummary(){
+  const fundItems = emergencyFunds();
+  const total = fundItems.reduce((sum, fund) => sum + fund.amount, 0);
+  const monthlyExpenses = value('expenses');
+  const months = monthlyExpenses > 0 ? total / monthlyExpenses : 0;
+  $('totalEmergencyFund').textContent = money(total);
+  $('emergencyFundMonths').textContent = `${months.toFixed(months >= 10 || months % 1 === 0 ? 0 : 1)} month${Math.abs(months - 1) < .05 ? '' : 's'}`;
+  $('emptyEmergencyFunds').classList.toggle('hidden', fundItems.length > 0);
+  const summary = document.querySelector('.emergency-total');
+  summary.classList.remove('status-good', 'status-alert', 'status-bad');
+  setStatusTone(summary, months >= 6 ? 'good' : months >= 3 ? 'alert' : 'bad');
 }
 
 function addPolicy(kind, policy = {}, shouldFocus = true){
@@ -597,14 +652,17 @@ function addMajorExpense(expense = {}, shouldFocus = true){
   row.dataset.expenseId = expenseCount;
   row.innerHTML = `
     <div class="expense-type-control">
-      <select class="family-input expense-type" aria-label="Major expense type">
+      <select class="family-input expense-type" aria-label="Financial goal type">
         ${EXPENSE_TYPES.map(type => `<option${selectedType === type ? ' selected' : ''}>${type}</option>`).join('')}
       </select>
       <input class="family-input custom-expense${isCustom ? '' : ' hidden'}" type="text" aria-label="Custom expense description" placeholder="Describe the expense" value="${escapeText(expense.customType || '')}">
     </div>
-    <input class="family-input expense-year" type="number" aria-label="Year of expense" min="${currentYear}" max="2100" placeholder="Year" value="${expense.year || currentYear + 5}">
-    <div class="asset-money"><span>₹</span><input class="family-input expense-amount" type="text" inputmode="numeric" aria-label="Anticipated expense amount" placeholder="Amount" value="${expense.amount ?? ''}"></div>
-    <button type="button" class="remove-member" aria-label="Remove expense">×</button>`;
+    <input class="family-input expense-year" type="number" aria-label="Financial goal target year" min="${currentYear}" max="2100" placeholder="Year" value="${expense.year || currentYear + 5}">
+    <div class="asset-money"><span>₹</span><input class="family-input expense-amount" type="text" inputmode="numeric" aria-label="Financial goal target amount" placeholder="Amount" value="${expense.amount ?? ''}"></div>
+    <div class="goal-progress" aria-label="Projected goal funding progress">
+      <div><i></i></div><span><strong>0%</strong><small>Enter an amount</small></span>
+    </div>
+    <button type="button" class="remove-member" aria-label="Remove financial goal">×</button>`;
   row.querySelector('.remove-member').addEventListener('click', () => {
     row.remove();
     updateExpenseSummary();
@@ -629,6 +687,26 @@ function updateExpenseSummary(){
   const total = expenseItems.reduce((sum, expense) => sum + expense.amount, 0);
   $('totalExpenses').textContent = money(total);
   $('emptyExpenses').classList.toggle('hidden', expenseItems.length > 0);
+  const retirementAssets = assets().filter(asset => !asset.excludedFromRetirement);
+  const currentAssetValue = retirementAssets.reduce((sum, asset) => sum + asset.value, 0);
+  const returnRate = currentAssetValue
+    ? retirementAssets.reduce((sum, asset) => sum + asset.value * asset.returnRate, 0) / currentAssetValue
+    : 10;
+  const totalLoanValue = loans().reduce((sum, loan) => sum + loan.balance, 0);
+  const currentYear = new Date().getFullYear();
+  [...$('expenseList').querySelectorAll('.expense-row')].forEach((row, index) => {
+    const expense = expenseItems[index];
+    const sameYearTotal = expenseItems.filter(item => item.year === expense.year).reduce((sum, item) => sum + item.amount, 0);
+    const available = fundsBeforeGoal(expense.year, retirementAssets, value('monthlyInvestment'), returnRate, totalLoanValue, expenseItems, currentYear);
+    const progress = expense.amount > 0 && sameYearTotal > 0 ? Math.min(100, available / sameYearTotal * 100) : 0;
+    const tracker = row.querySelector('.goal-progress');
+    tracker.style.setProperty('--goal-progress', progress);
+    tracker.classList.remove('status-good', 'status-alert', 'status-bad');
+    if(expense.amount > 0) setStatusTone(tracker, progress >= 90 ? 'good' : progress >= 60 ? 'alert' : 'bad');
+    tracker.querySelector('strong').textContent = `${Math.round(progress)}%`;
+    tracker.querySelector('small').textContent = expense.amount > 0 ? `${compactMoney(Math.min(expense.amount, available * expense.amount / sameYearTotal))} projected` : 'Enter an amount';
+    tracker.setAttribute('aria-label', `${Math.round(progress)}% projected funding progress for this goal`);
+  });
 }
 
 function addFamilyMember(member = {}, shouldFocus = true){
@@ -682,12 +760,14 @@ function saveState(){
     assets: assets(),
     loans: loans(),
     majorExpenses: majorExpenses(),
+    emergencyFunds: emergencyFunds(),
     healthPolicies: policies('health'),
     termPolicies: policies('term'),
     deploymentAllocations,
     deploymentReturns,
     riskProfileVersion: 1,
     cashFlowBreakdownVersion: 3,
+    protectionOrderVersion: 1,
     currentStep: current
   };
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(error) { console.warn('Could not save planner data.', error); }
@@ -749,6 +829,9 @@ function restoreState(){
     if(Array.isArray(state.majorExpenses)){
       state.majorExpenses.forEach(expense => addMajorExpense(expense, false));
     }
+    if(Array.isArray(state.emergencyFunds)){
+      state.emergencyFunds.forEach(fund => addEmergencyFund(fund, false));
+    }
     if(Array.isArray(state.healthPolicies)){
       state.healthPolicies.forEach(policy => addPolicy('health', policy, false));
     } else if(state.health === 'yes' || parseAmount(state.fields?.healthCover)){
@@ -774,7 +857,9 @@ function restoreState(){
       ]));
     }
     const savedStep = Number.isInteger(state.currentStep) ? state.currentStep : 0;
-    return state.riskProfileVersion || savedStep < 2 ? savedStep : savedStep + 1;
+    const riskAdjustedStep = state.riskProfileVersion || savedStep < 2 ? savedStep : savedStep + 1;
+    if(state.protectionOrderVersion) return riskAdjustedStep;
+    return ({3:4, 4:5, 5:3})[riskAdjustedStep] ?? riskAdjustedStep;
   } catch(error) {
     console.warn('Could not restore planner data.', error);
     return 0;
@@ -787,7 +872,7 @@ function showPanel(index){
   steps.forEach((s,i) => { s.classList.toggle('active',i===current); s.classList.toggle('done',i<current); });
   backBtn.disabled = current === 0;
   stepCount.textContent = `Step ${current + 1} of ${panels.length}`;
-  const labels = ['Next: Cash flow','Next: Risk profile','Next: Your wealth','Next: Major expenses','Next: Protection','See my plan','Download report'];
+  const labels = ['Next: Cash flow','Next: Risk profile','Next: Protection','Next: Your wealth','Next: Fin Goals','See my plan','Download report'];
   const actionIcon = current === panels.length - 1 ? '↓' : '→';
   nextBtn.innerHTML = `${labels[current]} <span>${actionIcon}</span>`;
   if(current === panels.length - 1) calculatePlan();
@@ -809,35 +894,36 @@ $('addMemberBtn').addEventListener('click', () => { addFamilyMember(); saveState
 $('addAssetBtn').addEventListener('click', () => { addAsset(); saveState(); });
 $('addLoanBtn').addEventListener('click', () => { addLoan(); saveState(); });
 $('addExpenseBtn').addEventListener('click', () => { addMajorExpense(); saveState(); });
+$('addEmergencyFundBtn').addEventListener('click', () => { addEmergencyFund(); saveState(); });
 $('addHealthPolicyBtn').addEventListener('click', () => { addPolicy('health'); saveState(); });
 $('addTermPolicyBtn').addEventListener('click', () => { addPolicy('term'); saveState(); });
 document.querySelectorAll('input').forEach(input => input.addEventListener('input', () => {
   if(isCurrencyInput(input)) formatCurrencyInput(input);
-  updateBasics(); updateCash(); updateRiskProfile(); updateProtectionSummary(); saveState();
+  updateBasics(); updateCash(); updateRiskProfile(); updateProtectionSummary(); updateEmergencyFundSummary(); updateExpenseSummary(); saveState();
 }));
 document.querySelectorAll('select[id]').forEach(select => select.addEventListener('change', saveState));
 $('familyList').addEventListener('input', saveState);
 $('familyList').addEventListener('change', saveState);
 $('assetList').addEventListener('input', event => {
   if(isCurrencyInput(event.target)) formatCurrencyInput(event.target);
-  updateAssetSummary(); saveState();
+  updateAssetSummary(); updateExpenseSummary(); saveState();
 });
 $('assetList').addEventListener('change', event => {
   if(event.target.classList.contains('asset-type')){
     event.target.closest('.asset-row').querySelector('.asset-return').value = ASSET_RETURNS[event.target.value];
   }
-  updateAssetSummary();
+  updateAssetSummary(); updateExpenseSummary();
   saveState();
 });
 $('loanList').addEventListener('input', event => {
   if(isCurrencyInput(event.target)) formatCurrencyInput(event.target);
-  updateLoanSummary(); saveState();
+  updateLoanSummary(); updateExpenseSummary(); saveState();
 });
 $('loanList').addEventListener('change', event => {
   if(event.target.classList.contains('loan-type')){
     event.target.closest('.loan-row').querySelector('.loan-rate').value = LOAN_RATES[event.target.value];
   }
-  updateLoanSummary();
+  updateLoanSummary(); updateExpenseSummary();
   saveState();
 });
 $('expenseList').addEventListener('input', event => {
@@ -852,6 +938,19 @@ $('expenseList').addEventListener('change', event => {
     if(isCustom) customInput.focus();
   }
   updateExpenseSummary(); saveState();
+});
+$('emergencyFundList').addEventListener('input', event => {
+  if(isCurrencyInput(event.target)) formatCurrencyInput(event.target);
+  updateEmergencyFundSummary(); saveState();
+});
+$('emergencyFundList').addEventListener('change', event => {
+  if(event.target.classList.contains('emergency-location')){
+    const customInput = event.target.closest('.emergency-row').querySelector('.custom-emergency-location');
+    const isCustom = event.target.value === 'Other / custom';
+    customInput.classList.toggle('hidden', !isCustom);
+    if(isCustom) customInput.focus();
+  }
+  updateEmergencyFundSummary(); saveState();
 });
 ['health','term'].forEach(kind => {
   const list = $(`${kind}PolicyList`);
@@ -924,4 +1023,4 @@ if(!restoredAssetList){
   addAsset({type:'Mutual funds', value:500000, returnRate:11}, false);
 }
 prepareCurrencyInputs();
-updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateProtectionSummary(); showPanel(restoredStep);
+updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateEmergencyFundSummary(); updateProtectionSummary(); showPanel(restoredStep);

@@ -24,7 +24,11 @@ The active branch is `dev`, tracking Bitbucket's `origin/dev`. Application chang
 
 ## AWS Amplify Gen 2 deployment
 
-The user has chosen to move the application toward AWS Amplify Gen 2 before adding authentication, database storage, B2B tenancy, subscriptions, and server-generated PDFs.
+The application is deployed on AWS Amplify Gen 2. Authentication, database storage, B2B tenancy, subscriptions, and server-generated PDFs remain future work.
+
+- Production URL: `https://finplanner.hiramyatech.com`
+- The custom domain was configured through the AWS console.
+- Amplify Hosting is connected and the initial deployment has been completed in Asia Pacific (Mumbai), `ap-south-1`.
 
 - `package.json` and `package-lock.json` pin the Amplify Gen 2 backend and CLI toolchain.
 - `amplify/backend.ts` is a valid empty Gen 2 backend. Add Auth, Data, Storage, and Functions there incrementally.
@@ -35,7 +39,6 @@ The user has chosen to move the application toward AWS Amplify Gen 2 before addi
 - The saved global npm authentication token is currently invalid. Public packages can be installed without modifying global configuration using `npm install --userconfig /dev/null`; Amplify CI will use its own clean build environment.
 - AWS CLI 2.22.7 is installed in WSL, but no local AWS profile or credentials were configured at the time of this context refresh.
 - AWS deployment region selected: Asia Pacific (Mumbai), `ap-south-1`. Amplify supplies this to its build environment; do not override the reserved `AWS_REGION` variable in `amplify.yml`.
-- Cloud deployment still requires connecting Amplify Hosting to the Bitbucket repository's `dev` branch in the Mumbai region and starting the first deployment.
 
 ## Git remotes and GitHub Pages
 
@@ -86,7 +89,7 @@ The personal GitHub remote therefore correctly uses `git@github.com:...`. Never 
 ### Light and dark themes
 
 - The header includes an accessible moon/sun theme toggle. It remains visible on small screens even when the Help button and privacy message are hidden.
-- The selected theme persists separately in local storage under `hiramyatech-theme`; **Reset test data** does not remove this display preference.
+- The selected theme persists separately in local storage under `hiramyatech-theme`; **Reset entered data** does not remove this display preference.
 - If there is no stored preference, an inline script in the document head applies the operating-system `prefers-color-scheme` setting before the stylesheet loads, avoiding a light-theme flash.
 - Dark mode covers page surfaces, form controls, repeatable rows, tables, report cards, gauges, and the lifetime corpus chart.
 - Green/yellow/red status semantics remain distinct in dark mode.
@@ -99,9 +102,9 @@ There are seven tabs, in this order:
 1. About you
 2. Cash flow
 3. Risk profile
-4. Your wealth
-5. Major expenses
-6. Protection
+4. Protection
+5. Your wealth
+6. Fin Goals
 7. Your plan
 
 Panel and step indices run from `0` through `6`. `showPanel()` calculates the plan when opening the final panel using `panels.length - 1`; do not reintroduce a hard-coded final index.
@@ -114,9 +117,9 @@ Panel and step indices run from `0` through `6`. `showPanel()` calculates the pl
 - Current migration markers:
   - `riskProfileVersion: 1`
   - `cashFlowBreakdownVersion: 3`
-- Old saved tab positions are shifted during restoration to account for the inserted Risk Profile tab.
+- Old saved tab positions are shifted during restoration to account for the inserted Risk Profile tab and the later move of Protection ahead of Your Wealth.
 - Cash-flow migrations preserve older aggregate expenses and convert the previously annual or aggregate insurance premium formats.
-- Reset Test Data clears the local-storage entry and reloads the page.
+- Reset Entered Data clears the local-storage entry and reloads the page.
 
 ## About You tab
 
@@ -206,15 +209,18 @@ Panel and step indices run from `0` through `6`. `showPanel()` calculates the pl
 - Each row includes loan type, outstanding balance, and annual interest rate.
 - Types include home loan/EMI, bank personal loan, gold loan, collateralised bank loan, private high-interest loan, vehicle loan, education loan, credit-card debt, and Other.
 
-## Major Expenses tab
+## Fin Goals tab
 
-- Supports multiple future expense rows.
+- Supports multiple financial-goal rows.
 - Types include son's marriage, daughter's marriage, son's education, daughter's education, and custom Other.
-- Each row has expense type, year, and anticipated amount.
-- These expenses reduce projected funds at the appropriate point in time.
+- Each row has goal type, target year, anticipated amount, and a projected-funding progress tracker.
+- Tracker progress uses projected assets and monthly investments available immediately before the goal, after loans and earlier goals. Goals in the same year share available funds proportionally.
+- These goals reduce projected funds at the appropriate point in time.
 
 ## Protection tab
 
+- Emergency Fund appears first and supports repeatable entries with amount, where the fund is held, and optional notes.
+- The section shows total emergency savings and the number of months of current household expenses covered. Six or more months is green, three to under six is yellow, and under three is red.
 - Separate repeatable Health Insurance and Term Life Insurance lists.
 - Each policy row includes:
   - Insurer, with preset Indian insurers and custom entry
@@ -271,7 +277,7 @@ Gauge colors use green/yellow/red semantics. Goal gauges use the same projected 
 - Hovering or keyboard-focusing a bar shows its calendar year, age, and exact corpus through the browser tooltip/accessibility label.
 - The chart scrolls horizontally when its annual bars do not fit the available width; the Now, Retirement, and Life expectancy labels remain aligned with the chart.
 - The retirement bar uses the same calculation as the headline projected corpus, so the two values reconcile.
-- The lifetime series reflects asset-specific growth, monthly investments, major expenses, current outstanding loan balances, retirement returns, inflation-adjusted living costs, and post-retirement withdrawals.
+- The lifetime series reflects asset-specific growth, monthly investments, financial goals, current outstanding loan balances, retirement returns, inflation-adjusted living costs, and post-retirement withdrawals.
 
 ### Deployment
 
@@ -299,9 +305,9 @@ Order and current suggested allocations:
 
 - Projects each retirement-counted asset using its individual expected return.
 - Adds future value of monthly investments.
-- Subtracts outstanding loan balances and time-adjusted major expenses.
+- Subtracts outstanding loan balances and time-adjusted financial goals.
 - Calculates required retirement corpus through the user's life-expectancy age using inflation and actual deployment return assumptions.
-- Produces a year-by-year retirement drawdown schedule with opening funds, returns, living expenses, major expenses, and closing funds.
+- Produces a year-by-year retirement drawdown schedule with opening funds, returns, living expenses, financial goals, and closing funds.
 - “Amortization schedule” was replaced conceptually by the more accurate term **retirement drawdown schedule**.
 
 ## Important implementation notes

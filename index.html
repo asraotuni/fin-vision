@@ -30,7 +30,7 @@
       </a>
       <div class="header-actions">
         <span class="secure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z"/></svg> Your data stays private</span>
-        <button type="button" class="reset-data" id="resetDataBtn">Reset test data</button>
+        <button type="button" class="reset-data" id="resetDataBtn">Reset entered data</button>
         <button type="button" class="icon-button theme-toggle" id="themeToggle" aria-label="Use dark mode" aria-pressed="false" title="Use dark mode"><span aria-hidden="true">☾</span></button>
         <button type="button" class="icon-button help-button" aria-label="Help">?</button>
       </div>
@@ -50,11 +50,11 @@
         <span class="step-line"></span>
         <button class="step" data-step="2"><span class="step-number">3</span><span><b>Risk profile</b><small>Comfort & capacity</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="3"><span class="step-number">4</span><span><b>Your wealth</b><small>What you’ve built</small></span></button>
+        <button class="step" data-step="3"><span class="step-number">4</span><span><b>Protection</b><small>Your safety net</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="4"><span class="step-number">5</span><span><b>Major expenses</b><small>What lies ahead</small></span></button>
+        <button class="step" data-step="4"><span class="step-number">5</span><span><b>Your wealth</b><small>What you’ve built</small></span></button>
         <span class="step-line"></span>
-        <button class="step" data-step="5"><span class="step-number">6</span><span><b>Protection</b><small>Your safety net</small></span></button>
+        <button class="step" data-step="5"><span class="step-number">6</span><span><b>Fin Goals</b><small>What lies ahead</small></span></button>
         <span class="step-line"></span>
         <button class="step" data-step="6"><span class="step-number">7</span><span><b>Your plan</b><small>The big picture</small></span></button>
       </nav>
@@ -209,6 +209,44 @@
 
           <div class="panel" data-panel="3">
             <div class="panel-heading">
+              <span class="panel-icon blue"><svg viewBox="0 0 24 24"><path d="m12 3 7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6l7-3Z"/></svg></span>
+              <div><h2>Protect the plan</h2><p>Good insurance keeps surprises from derailing your goals.</p></div>
+            </div>
+            <div class="emergency-section">
+              <div class="section-title">
+                <div><h3>Emergency fund</h3><p>Record money you can access quickly for unexpected expenses.</p></div>
+                <button type="button" class="add-member" id="addEmergencyFundBtn"><span>+</span> Add fund</button>
+              </div>
+              <div class="emergency-head" aria-hidden="true"><span>Where it is saved</span><span>Amount</span><span>Notes (optional)</span><span></span></div>
+              <div class="emergency-list" id="emergencyFundList"></div>
+              <div class="empty-family" id="emptyEmergencyFunds"><span>+</span><p>No emergency funds added.</p></div>
+              <div class="emergency-total"><div><span>Total emergency fund</span><strong id="totalEmergencyFund">₹ 0</strong></div><div><span>Expense cover</span><strong id="emergencyFundMonths">0 months</strong></div></div>
+            </div>
+            <div class="policy-section">
+              <div class="section-title">
+                <div><h3>Health insurance</h3><p>Add personal and employer-provided health policies.</p></div>
+                <button type="button" class="add-member" id="addHealthPolicyBtn"><span>+</span> Add health policy</button>
+              </div>
+              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Monthly premium</span><span>Provided through</span><span></span></div>
+              <div class="policy-list" id="healthPolicyList"></div>
+              <div class="empty-family" id="emptyHealthPolicies"><span>+</span><p>No health policies added.</p></div>
+              <div class="policy-total"><span>Total health cover</span><strong id="totalHealthCover">₹ 0</strong><span>Monthly premiums</span><strong id="totalHealthPremium">₹ 0</strong></div>
+            </div>
+            <div class="policy-section term-policy-section">
+              <div class="section-title">
+                <div><h3>Term life insurance</h3><p>Add every term policy currently covering you.</p></div>
+                <button type="button" class="add-member" id="addTermPolicyBtn"><span>+</span> Add term policy</button>
+              </div>
+              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Monthly premium</span><span>Provided through</span><span></span></div>
+              <div class="policy-list" id="termPolicyList"></div>
+              <div class="empty-family" id="emptyTermPolicies"><span>+</span><p>No term policies added.</p></div>
+              <div class="policy-total"><span>Total term cover</span><strong id="totalTermCover">₹ 0</strong><span>Monthly premiums</span><strong id="totalTermPremium">₹ 0</strong></div>
+            </div>
+            <div class="insight warning"><span class="bulb">!</span><p id="insuranceHint">Term-cover guidance is based on your annual income and the years remaining until retirement, capped at 10 years.</p></div>
+          </div>
+
+          <div class="panel" data-panel="4">
+            <div class="panel-heading">
               <span class="panel-icon mint"><svg viewBox="0 0 24 24"><path d="M4 7h16v12H4zM7 7V5h10v2m-9 5h8"/></svg></span>
               <div><h2>What have you built so far?</h2><p>Add everything you own that contributes to your financial picture.</p></div>
             </div>
@@ -240,50 +278,22 @@
             </div>
           </div>
 
-          <div class="panel" data-panel="4">
+          <div class="panel" data-panel="5">
             <div class="panel-heading">
               <span class="panel-icon yellow"><svg viewBox="0 0 24 24"><path d="M5 8h14v11H5zM8 5v6m8-6v6m-8 3h3"/></svg></span>
-              <div><h2>Plan for life’s big moments</h2><p>Set aside major future costs before calculating retirement readiness.</p></div>
+              <div><h2>Plan your financial goals</h2><p>Track how prepared you are for each important milestone.</p></div>
             </div>
             <div class="expense-section">
               <div class="section-title">
-                <div><h3>Planned major expenses</h3><p>Enter the amount you expect to pay in that future year.</p></div>
-                <button type="button" class="add-member" id="addExpenseBtn"><span>+</span> Add expense</button>
+                <div><h3>Your goals</h3><p>Enter each target amount and year to see its projected funding progress.</p></div>
+                <button type="button" class="add-member" id="addExpenseBtn"><span>+</span> Add goal</button>
               </div>
-              <div class="expense-head" aria-hidden="true"><span>Expense type</span><span>Year</span><span>Anticipated amount</span><span></span></div>
+              <div class="expense-head" aria-hidden="true"><span>Goal</span><span>Target year</span><span>Target amount</span><span>Projected progress</span><span></span></div>
               <div class="expense-list" id="expenseList"></div>
-              <div class="empty-family" id="emptyExpenses"><span>◇</span><p>No major expenses added yet.</p></div>
-              <div class="expense-total"><span>Total anticipated expenses</span><strong id="totalExpenses">₹ 0</strong></div>
+              <div class="empty-family" id="emptyExpenses"><span>◇</span><p>No financial goals added yet.</p></div>
+              <div class="expense-total"><span>Total goal amount</span><strong id="totalExpenses">₹ 0</strong></div>
             </div>
-            <div class="insight"><span class="bulb">✦</span><p>Earlier expenses have a larger effect because that money has less time to grow toward retirement.</p></div>
-          </div>
-
-          <div class="panel" data-panel="5">
-            <div class="panel-heading">
-              <span class="panel-icon blue"><svg viewBox="0 0 24 24"><path d="m12 3 7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6l7-3Z"/></svg></span>
-              <div><h2>Protect the plan</h2><p>Good insurance keeps surprises from derailing your goals.</p></div>
-            </div>
-            <div class="policy-section">
-              <div class="section-title">
-                <div><h3>Health insurance</h3><p>Add personal and employer-provided health policies.</p></div>
-                <button type="button" class="add-member" id="addHealthPolicyBtn"><span>+</span> Add health policy</button>
-              </div>
-              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Monthly premium</span><span>Provided through</span><span></span></div>
-              <div class="policy-list" id="healthPolicyList"></div>
-              <div class="empty-family" id="emptyHealthPolicies"><span>+</span><p>No health policies added.</p></div>
-              <div class="policy-total"><span>Total health cover</span><strong id="totalHealthCover">₹ 0</strong><span>Monthly premiums</span><strong id="totalHealthPremium">₹ 0</strong></div>
-            </div>
-            <div class="policy-section term-policy-section">
-              <div class="section-title">
-                <div><h3>Term life insurance</h3><p>Add every term policy currently covering you.</p></div>
-                <button type="button" class="add-member" id="addTermPolicyBtn"><span>+</span> Add term policy</button>
-              </div>
-              <div class="policy-head" aria-hidden="true"><span>Insurer (optional)</span><span>Cover amount</span><span>Monthly premium</span><span>Provided through</span><span></span></div>
-              <div class="policy-list" id="termPolicyList"></div>
-              <div class="empty-family" id="emptyTermPolicies"><span>+</span><p>No term policies added.</p></div>
-              <div class="policy-total"><span>Total term cover</span><strong id="totalTermCover">₹ 0</strong><span>Monthly premiums</span><strong id="totalTermPremium">₹ 0</strong></div>
-            </div>
-            <div class="insight warning"><span class="bulb">!</span><p id="insuranceHint">Term-cover guidance is based on your annual income and the years remaining until retirement, capped at 10 years.</p></div>
+            <div class="insight"><span class="bulb">✦</span><p>Progress estimates use the same projected pool of assets and investments. Funds are not treated as separately earmarked for each goal.</p></div>
           </div>
 
           <div class="panel results-panel" data-panel="6">
@@ -337,7 +347,7 @@
               <div class="report-section-head"><div><span class="eyebrow">YEAR-BY-YEAR OUTLOOK</span><h3>Retirement drawdown schedule</h3><p>How the fund may change as returns are earned and expenses are withdrawn.</p></div><span class="status-badge" id="scheduleHorizon">Through age 85</span></div>
               <div class="drawdown-wrap">
                 <table class="drawdown-table">
-                  <thead><tr><th>Year</th><th>Age</th><th>Opening funds</th><th>Returns</th><th>Living expenses</th><th>Major expenses</th><th>Closing funds</th></tr></thead>
+                  <thead><tr><th>Year</th><th>Age</th><th>Opening funds</th><th>Returns</th><th>Living expenses</th><th>Financial goals</th><th>Closing funds</th></tr></thead>
                   <tbody id="drawdownBody"></tbody>
                 </table>
               </div>
