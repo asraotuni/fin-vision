@@ -36,7 +36,7 @@ let policyCount = 0;
 let emergencyFundCount = 0;
 let expenseCount = 0;
 let restoredAssetList = false;
-let deploymentAllocations = null;
+let preferredDeploymentAllocations = null;
 let deploymentReturns = null;
 
 const $ = id => document.getElementById(id);
@@ -106,7 +106,7 @@ function updateRiskProfile(){
 }
 
 function isCurrencyInput(input){
-  return input.matches('.money input, .asset-value, .loan-balance, .policy-cover, .policy-premium, .expense-amount');
+  return input.matches('.money input, .asset-value, .loan-balance, .policy-cover, .policy-premium, .expense-amount, .emergency-amount');
 }
 
 function formatCurrencyInput(input){
@@ -115,7 +115,7 @@ function formatCurrencyInput(input){
 }
 
 function prepareCurrencyInputs(){
-  document.querySelectorAll('.money input, .asset-value, .loan-balance, .policy-cover, .policy-premium, .expense-amount').forEach(input => {
+  document.querySelectorAll('.money input, .asset-value, .loan-balance, .policy-cover, .policy-premium, .expense-amount, .emergency-amount').forEach(input => {
     input.type = 'text';
     input.inputMode = 'numeric';
     formatCurrencyInput(input);
@@ -147,9 +147,11 @@ function deriveAllocationsFromAssets(assetItems){
   return allocations;
 }
 
-function actualAllocations(assetItems){
-  if(!deploymentAllocations) deploymentAllocations = deriveAllocationsFromAssets(assetItems);
-  return deploymentAllocations;
+function preferredAllocations(){
+  if(!preferredDeploymentAllocations){
+    preferredDeploymentAllocations = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [item.name, item.suggestedAllocation]));
+  }
+  return preferredDeploymentAllocations;
 }
 
 function actualDeploymentReturns(){
@@ -160,7 +162,7 @@ function actualDeploymentReturns(){
 }
 
 function weightedDeploymentReturn(){
-  const allocations = deploymentAllocations || {};
+  const allocations = preferredDeploymentAllocations || {};
   const returns = actualDeploymentReturns();
   return RETIREMENT_ALLOCATION.reduce((sum, item) => sum + (allocations[item.name] || 0) * (returns[item.name] || 0), 0) / 100;
 }
@@ -199,7 +201,8 @@ function calculatePlan(){
   const inflation = Math.min(20, value('inflationRate')) / 100;
   const lifeExpectancy = Math.min(100, Math.max(retirementAge + 1, value('lifeExpectancy')));
   const retirementYears = lifeExpectancy - retirementAge;
-  const enteredAllocations = actualAllocations(retirementAssets);
+  const actualAllocationValues = deriveAllocationsFromAssets(retirementAssets);
+  const enteredAllocations = preferredAllocations();
   const enteredReturns = actualDeploymentReturns();
   const retirementReturn = weightedDeploymentReturn() / 100;
   const currentYear = new Date().getFullYear();
@@ -254,7 +257,7 @@ function calculatePlan(){
   setStatusTone($('recommendedSip').closest('article'), recommended <= monthly ? 'good' : recommended - monthly <= Math.max(0, value('income') - value('expenses') - monthly) ? 'alert' : 'bad');
   setStatusTone($('retirementIncome').closest('article'), planTone);
   setStatusTone($('protectionStatus').closest('article'), gaps === 0 ? 'good' : gaps === 1 ? 'alert' : 'bad');
-  renderDeployment(projected, enteredAllocations, enteredReturns);
+  renderDeployment(projected, actualAllocationValues, enteredAllocations, enteredReturns);
   const drawdownPoints = renderDrawdown(projected, retirementAge, lifeExpectancy, retirementYear, firstYearRetirementExpense, inflation, retirementReturn, expenseItems);
   renderLifetimeCorpusChart(retirementAssets, monthly, returnRate, years, totalLoanValue, expenseItems, currentYear, age, retirementAge, lifeExpectancy, drawdownPoints);
   renderPlanGauges(gaugeScores, projected, needed);
@@ -299,37 +302,41 @@ function renderLifetimeCorpusChart(assetItems, monthly, rate, years, loans, expe
   chart.setAttribute('aria-label', `Annual corpus from age ${currentAge} through life expectancy age ${lifeExpectancy}, with retirement highlighted at age ${retirementAge}.`);
 }
 
-function renderDeployment(corpus, enteredAllocations, enteredReturns){
+function renderDeployment(corpus, actualAllocations, preferredAllocationValues, enteredReturns){
   updateDeploymentReturnGauge();
   $('deploymentRows').innerHTML = RETIREMENT_ALLOCATION.map(item => {
-    const actual = enteredAllocations[item.name] || 0;
+    const actual = actualAllocations[item.name] || 0;
+    const preferred = preferredAllocationValues[item.name] || 0;
     const highlightsRealEstate = item.name === 'Real estate' && actual > item.suggestedAllocation;
     const severeRealEstate = item.name === 'Real estate' && actual >= 30;
     return `
     <div class="deployment-row${highlightsRealEstate ? ' overallocated' : ''}${severeRealEstate ? ' badly-overallocated' : ''}">
       <b>${item.name}</b>
       <span class="allocation-cell"><span class="allocation-bar"><i style="width:${item.suggestedAllocation * 4}%"></i></span>${item.suggestedAllocation}%</span>
-      <label class="actual-allocation-wrap"><input class="actual-allocation" type="number" min="0" max="100" step="0.1" data-asset-class="${item.name}" value="${actual}"><span>%</span></label>
-      <label class="actual-allocation-wrap"><input class="assumed-return" type="number" min="0" max="30" step="0.1" data-asset-class="${item.name}" value="${enteredReturns[item.name]}"><span>%</span></label>
-      <span>${money(corpus * actual / 100)}</span>
+      <span class="actual-allocation-value">${actual}%</span>
+      <label class="allocation-input-wrap"><input class="preferred-allocation" type="number" min="0" max="100" step="0.1" data-asset-class="${item.name}" value="${preferred}"><span>%</span></label>
+      <label class="allocation-input-wrap"><input class="assumed-return" type="number" min="0" max="30" step="0.1" data-asset-class="${item.name}" value="${enteredReturns[item.name]}"><span>%</span></label>
+      <span>${money(corpus * preferred / 100)}</span>
     </div>`;
   }).join('');
   updateAllocationInsight();
 }
 
 function updateAllocationInsight(){
-  const allocations = deploymentAllocations || {};
-  const realEstate = Number(allocations['Real estate']) || 0;
+  const allocations = preferredDeploymentAllocations || {};
+  const actualAllocationValues = deriveAllocationsFromAssets(assets().filter(asset => !asset.excludedFromRetirement));
+  const realEstate = Number(actualAllocationValues['Real estate']) || 0;
+  const preferredRealEstate = Number(allocations['Real estate']) || 0;
   const suggestedRealEstate = RETIREMENT_ALLOCATION.find(item => item.name === 'Real estate').suggestedAllocation;
   const total = RETIREMENT_ALLOCATION.reduce((sum, item) => sum + (Number(allocations[item.name]) || 0), 0);
   const severeRealEstate = realEstate >= 30;
   const messages = [];
   if(realEstate > suggestedRealEstate){
-    messages.push(`<strong>High real-estate concentration:</strong> ${realEstate}% actual versus ${suggestedRealEstate}% suggested. Heavy property exposure can reduce liquidity and diversification during retirement.`);
+    messages.push(`<strong>High real-estate concentration:</strong> ${realEstate}% actual versus ${suggestedRealEstate}% suggested. Your preferred allocation is ${preferredRealEstate}%. Heavy property exposure can reduce liquidity and diversification during retirement.`);
   } else {
-    messages.push(`Real estate is ${realEstate}% of the entered retirement allocation, against a ${suggestedRealEstate}% suggestion.`);
+    messages.push(`Real estate is ${realEstate}% of your actual retirement assets, against a ${suggestedRealEstate}% suggestion; your preferred allocation is ${preferredRealEstate}%.`);
   }
-  if(Math.abs(total - 100) > 0.05) messages.push(`<strong>Actual allocation totals ${total.toFixed(1)}%.</strong> Adjust it to 100% for a complete projection.`);
+  if(Math.abs(total - 100) > 0.05) messages.push(`<strong>Preferred allocation totals ${total.toFixed(1)}%.</strong> Adjust it to 100% for a complete projection.`);
   $('allocationInsight').innerHTML = messages.join(' ');
   $('allocationInsight').classList.toggle('alert', !severeRealEstate && (realEstate > suggestedRealEstate || Math.abs(total - 100) > 0.05));
   $('allocationInsight').classList.toggle('bad', severeRealEstate);
@@ -763,7 +770,7 @@ function saveState(){
     emergencyFunds: emergencyFunds(),
     healthPolicies: policies('health'),
     termPolicies: policies('term'),
-    deploymentAllocations,
+    preferredDeploymentAllocations,
     deploymentReturns,
     riskProfileVersion: 1,
     cashFlowBreakdownVersion: 3,
@@ -842,10 +849,11 @@ function restoreState(){
     } else if(state.term === 'yes' || parseAmount(state.fields?.termCover)){
       addPolicy('term', {insurer:'Not specified', cover:parseAmount(state.fields?.termCover), source:'Personally taken'}, false);
     }
-    if(state.deploymentAllocations && typeof state.deploymentAllocations === 'object'){
-      deploymentAllocations = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [
+    const savedPreferredAllocations = state.preferredDeploymentAllocations || state.deploymentAllocations;
+    if(savedPreferredAllocations && typeof savedPreferredAllocations === 'object'){
+      preferredDeploymentAllocations = Object.fromEntries(RETIREMENT_ALLOCATION.map(item => [
         item.name,
-        Math.min(100, Math.max(0, Number(state.deploymentAllocations[item.name]) || 0))
+        Math.min(100, Math.max(0, Number(savedPreferredAllocations[item.name]) || 0))
       ]));
     }
     if(state.deploymentReturns && typeof state.deploymentReturns === 'object'){
@@ -969,9 +977,9 @@ $('emergencyFundList').addEventListener('change', event => {
   });
 });
 $('deploymentRows').addEventListener('input', event => {
-  if(event.target.classList.contains('actual-allocation')){
+  if(event.target.classList.contains('preferred-allocation')){
     const allocation = Math.min(100, Math.max(0, Number(event.target.value) || 0));
-    deploymentAllocations[event.target.dataset.assetClass] = allocation;
+    preferredDeploymentAllocations[event.target.dataset.assetClass] = allocation;
     updateAllocationInsight();
     updateDeploymentReturnGauge();
     saveState();
@@ -984,7 +992,7 @@ $('deploymentRows').addEventListener('input', event => {
   }
 });
 $('deploymentRows').addEventListener('change', event => {
-  if(event.target.classList.contains('actual-allocation') || event.target.classList.contains('assumed-return')) calculatePlan();
+  if(event.target.classList.contains('preferred-allocation') || event.target.classList.contains('assumed-return')) calculatePlan();
 });
 $('resetDataBtn').addEventListener('click', () => {
   if(confirm('Clear all saved planner values and restore the defaults?')){

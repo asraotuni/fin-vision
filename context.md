@@ -283,7 +283,7 @@ Gauge colors use green/yellow/red semantics. Goal gauges use the same projected 
 
 Section name: **Deployment**.
 
-Columns include Suggested allocation, editable Actual allocation, editable Assumed return, and Amount at retirement. Calculations use the actual allocation and editable return assumptions.
+Columns include Suggested allocation, read-only Actual allocation, editable Preferred allocation, editable Assumed return, and Amount at retirement. Actual allocation is derived from entered retirement assets. Calculations use the preferred allocation and editable return assumptions.
 
 Order and current suggested allocations:
 
@@ -296,7 +296,7 @@ Order and current suggested allocations:
 
 - Do not show REIT under Real Estate.
 - Real-estate over-allocation is highlighted clearly because the intended audience may be heavily concentrated in property.
-- Return from Actual Mix gauge:
+- Return from Preferred Mix gauge:
   - Below 6%: red
   - 6% through 10%: yellow
   - Above 10%: green
