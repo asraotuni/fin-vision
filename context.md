@@ -1,6 +1,6 @@
 # Fin Vision project context
 
-Last updated: 2026-09-03
+Last updated: 2026-09-04
 
 ## Purpose
 
@@ -20,7 +20,22 @@ The user intends to add authentication (possibly Google SSO), backend storage, a
 
 ## Current working-tree status
 
-The active branch is `dev`, tracking Bitbucket's `origin/dev`. At the time of this context refresh, the previously completed application changes were committed and the working tree was clean before editing this file. Treat any later uncommitted changes as intentional user work and do not reset or overwrite them.
+The active branch is `dev`, tracking Bitbucket's `origin/dev`. Application changes through commit `9ab1ae1` (`infographics improved, dark mode added`) are present on local `dev`, `origin/dev`, and `github/dev`. The working tree now also contains intentional, uncommitted Amplify Gen 2 deployment scaffolding plus this refreshed context. Do not reset or overwrite these changes. The frontend build, Amplify backend TypeScript check, `node --check app.js`, and `git diff --check` pass.
+
+## AWS Amplify Gen 2 deployment
+
+The user has chosen to move the application toward AWS Amplify Gen 2 before adding authentication, database storage, B2B tenancy, subscriptions, and server-generated PDFs.
+
+- `package.json` and `package-lock.json` pin the Amplify Gen 2 backend and CLI toolchain.
+- `amplify/backend.ts` is a valid empty Gen 2 backend. Add Auth, Data, Storage, and Functions there incrementally.
+- `amplify.yml` runs `ampx pipeline-deploy` for the current Amplify branch, then builds the static frontend.
+- `scripts/build.mjs` recreates `dist/` and copies only `index.html`, `styles.css`, `app.js`, and `amplify_outputs.json` when backend outputs exist.
+- Generated `dist/`, `.amplify/`, `node_modules/`, and `amplify_outputs.json` are ignored.
+- Local dependency versions validated on 2026-09-04: `@aws-amplify/backend` 1.24.0, `@aws-amplify/backend-cli` 1.9.0, and TypeScript 5.9.3.
+- The saved global npm authentication token is currently invalid. Public packages can be installed without modifying global configuration using `npm install --userconfig /dev/null`; Amplify CI will use its own clean build environment.
+- AWS CLI 2.22.7 is installed in WSL, but no local AWS profile or credentials were configured at the time of this context refresh.
+- AWS deployment region selected: Asia Pacific (Mumbai), `ap-south-1`. Amplify supplies this to its build environment; do not override the reserved `AWS_REGION` variable in `amplify.yml`.
+- Cloud deployment still requires connecting Amplify Hosting to the Bitbucket repository's `dev` branch in the Mumbai region and starting the first deployment.
 
 ## Git remotes and GitHub Pages
 
@@ -56,8 +71,6 @@ The personal GitHub remote therefore correctly uses `git@github.com:...`. Never 
 
 ## Branding and visual conventions
 
-- The header includes a moon/sun toggle for light and dark modes. The selected theme is stored separately under `hiramyatech-theme`; when no preference has been saved, the app follows the operating-system color preference.
-
 - Brand name: **HiramyaTech**.
 - Main heading: **Your financial planner.**
 - Use INR for all financial values and Indian comma grouping.
@@ -69,6 +82,15 @@ The personal GitHub remote therefore correctly uses `git@github.com:...`. Never 
   - Red: bad
 - Avoid orange for alerts.
 - The final action is **Download report**, implemented with the browser print dialog for Print to PDF.
+
+### Light and dark themes
+
+- The header includes an accessible moon/sun theme toggle. It remains visible on small screens even when the Help button and privacy message are hidden.
+- The selected theme persists separately in local storage under `hiramyatech-theme`; **Reset test data** does not remove this display preference.
+- If there is no stored preference, an inline script in the document head applies the operating-system `prefers-color-scheme` setting before the stylesheet loads, avoiding a light-theme flash.
+- Dark mode covers page surfaces, form controls, repeatable rows, tables, report cards, gauges, and the lifetime corpus chart.
+- Green/yellow/red status semantics remain distinct in dark mode.
+- Print styling remains light-oriented for a readable PDF report.
 
 ## Navigation
 
@@ -246,7 +268,8 @@ Gauge colors use green/yellow/red semantics. Goal gauges use the same projected 
 - Headline label: **Projected corpus at retirement**.
 - The chart contains one annual bar from the current age through the entered life-expectancy age.
 - Blue bars show pre-retirement accumulation, the retirement-age bar is highlighted in coral, and green bars show post-retirement drawdown.
-- Hovering a bar shows its calendar year, age, and exact corpus.
+- Hovering or keyboard-focusing a bar shows its calendar year, age, and exact corpus through the browser tooltip/accessibility label.
+- The chart scrolls horizontally when its annual bars do not fit the available width; the Now, Retirement, and Life expectancy labels remain aligned with the chart.
 - The retirement bar uses the same calculation as the headline projected corpus, so the two values reconcile.
 - The lifetime series reflects asset-specific growth, monthly investments, major expenses, current outstanding loan balances, retirement returns, inflation-adjusted living costs, and post-retirement withdrawals.
 
