@@ -30,7 +30,8 @@
       </a>
       <div class="header-actions">
         <span class="secure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z"/></svg> Your data stays private</span>
-        <button type="button" class="reset-data" id="resetDataBtn">Reset entered data</button>
+        <button type="button" class="reset-data" id="resetDataBtn" hidden>Reset entered data</button>
+        <button type="button" class="auth-signout" id="signOutBtn" hidden>Sign out</button>
         <button type="button" class="icon-button theme-toggle" id="themeToggle" aria-label="Use dark mode" aria-pressed="false" title="Use dark mode"><span aria-hidden="true">☾</span></button>
         <button type="button" class="icon-button help-button" aria-label="Help">?</button>
       </div>
@@ -43,6 +44,28 @@
         <p>A few simple details. One clear, actionable plan.</p>
       </section>
 
+      <section class="auth-card" id="loginPanel" aria-labelledby="loginHeading">
+        <h2 id="loginHeading">Sign in to your planner</h2>
+        <p>Continue with Google to start your plan.</p>
+        <button type="button" class="google-signin" id="googleSignInBtn" disabled>Continue with Google</button>
+        <div class="auth-alternatives">
+          <button type="button" disabled>Mobile number + OTP <small>Coming soon</small></button>
+          <button type="button" disabled>Email + OTP <small>Coming soon</small></button>
+        </div>
+        <p class="auth-note">Google sign-in shares your name and email for your account. After signing in, you can choose to share your date of birth and region/country. Your plan is kept only in this tab until you sign out; it is not saved to a server.</p>
+        <p id="authStatus" role="status">Loading sign-in. If this message remains, reload the page.</p>
+        <noscript>Enable JavaScript to sign in and use the planner.</noscript>
+      </section>
+
+      <section class="auth-profile" id="accountPanel" aria-labelledby="accountHeading" hidden>
+        <h2 id="accountHeading">Your Google profile</h2>
+        <dl><div><dt>Name</dt><dd id="accountName">Not provided</dd></div><div><dt>Date of birth</dt><dd id="accountDob">Not shared</dd></div><div><dt>Region / country</dt><dd id="accountCountry">Not shared</dd></div></dl>
+        <p class="auth-note">With your consent, Google can share your birthday and address information so we can display your date of birth and region/country. These details stay in memory and are cleared on reload or sign-out. You can continue without sharing them.</p>
+        <button type="button" class="add-member" id="shareGoogleProfileBtn" disabled>Share DOB and country from Google</button>
+        <p id="profileStatus" role="status"></p>
+      </section>
+
+      <div id="plannerWorkspace" hidden>
       <nav class="steps" aria-label="Planner progress">
         <button class="step active" data-step="0"><span class="step-number">1</span><span><b>About you</b><small>The basics</small></span></button>
         <span class="step-line"></span>
@@ -391,9 +414,11 @@
           </div>
         </form>
       </section>
+      </div>
     </main>
     <footer><span>Made with care for your future.</span><span>Educational estimate · Not financial advice</span></footer>
   </div>
-  <script src="app.js"></script>
+  <script src="theme.js"></script>
+  <script type="module" src="auth.js"></script>
 </body>
 </html>

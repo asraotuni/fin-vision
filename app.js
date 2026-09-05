@@ -3,7 +3,8 @@ const steps = [...document.querySelectorAll('.step')];
 const nextBtn = document.querySelector('#nextBtn');
 const backBtn = document.querySelector('#backBtn');
 const stepCount = document.querySelector('#stepCount');
-const STORAGE_KEY = 'hiramyatech-test-data-v1';
+if(!window.finVisionUserId) throw new Error('Sign in before loading the planner.');
+const STORAGE_KEY = `hiramyatech-session-plan:${window.finVisionUserId}`;
 const ASSET_RETURNS = {
   'Independent house / villa': 6, 'Flat': 6, 'Plot': 7, 'Agricultural land': 7, 'EPF / PF': 8.25,
   'PPF': 7.1, 'Gold': 8, 'Savings bank account': 3, 'Cash': 0,
@@ -893,29 +894,12 @@ function saveState(){
     protectionOrderVersion: 1,
     currentStep: current
   };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(error) { console.warn('Could not save planner data.', error); }
-}
-
-function migrateLegacyPlannerState(){
-  if(localStorage.getItem(STORAGE_KEY)) return;
-  for(let index = 0; index < localStorage.length; index += 1){
-    const candidateKey = localStorage.key(index);
-    if(!candidateKey || candidateKey === STORAGE_KEY || !candidateKey.endsWith('-test-data-v1')) continue;
-    try {
-      const candidateState = JSON.parse(localStorage.getItem(candidateKey));
-      if(!candidateState || typeof candidateState.fields !== 'object' || !Number.isInteger(candidateState.currentStep)) continue;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(candidateState));
-      localStorage.removeItem(candidateKey);
-      return;
-    } catch(error){
-      console.warn('Could not migrate saved planner data.', error);
-    }
-  }
+  try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(error) { console.warn('Could not save planner data.', error); }
 }
 
 function restoreState(){
   try {
-    const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
+    const state = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
     if(!state) return 0;
     Object.entries(state.fields || {}).forEach(([id, savedValue]) => {
       if(!$(id)) return;
@@ -1132,32 +1116,11 @@ $('deploymentRows').addEventListener('change', event => {
 });
 $('resetDataBtn').addEventListener('click', () => {
   if(confirm('Clear all saved planner values and restore the defaults?')){
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
     window.location.reload();
   }
 });
 
-const THEME_KEY = 'hiramyatech-theme';
-function applyTheme(theme, persist = false){
-  const selectedTheme = theme === 'dark' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = selectedTheme;
-  const useDarkMode = selectedTheme !== 'dark';
-  const themeToggle = $('themeToggle');
-  themeToggle.querySelector('span').textContent = useDarkMode ? '☾' : '☀';
-  themeToggle.setAttribute('aria-label', useDarkMode ? 'Use dark mode' : 'Use light mode');
-  themeToggle.setAttribute('aria-pressed', String(selectedTheme === 'dark'));
-  themeToggle.title = useDarkMode ? 'Use dark mode' : 'Use light mode';
-  if(persist){
-    try { localStorage.setItem(THEME_KEY, selectedTheme); } catch(error) { console.warn('Could not save theme preference.', error); }
-  }
-}
-
-$('themeToggle').addEventListener('click', () => {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true);
-});
-applyTheme(document.documentElement.dataset.theme);
-
-migrateLegacyPlannerState();
 const restoredStep = restoreState();
 if(!assets().some(asset => asset.excludedFromRetirement)){
   addAsset({type:'Independent house / villa', value:'', returnRate:6, excludedFromRetirement:true}, false);

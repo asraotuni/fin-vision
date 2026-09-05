@@ -1,6 +1,16 @@
 # Fin Vision project context
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
+
+## Authentication iteration (2026-09-05; supersedes older local-use and persistence notes below)
+
+- Google SSO code now uses Amplify Gen 2 Auth / Cognito in `amplify/auth/resource.ts`, wired through `amplify/backend.ts`. Only Google is enabled; mobile/OTP and email/OTP are visible disabled placeholders.
+- `auth.js` gates the planner until a Cognito Google session exists, displays the user's name, and exposes sign-out. `theme.js` works before login. The build bundles the auth SDK using esbuild. Serve the built `dist/` directory with `python3 -m http.server 8000 --directory dist` after `npm run build`.
+- Additional DOB and region/country consent uses the Google People API through a separate optional button after login. The Google subject must match the Cognito Google identity. Missing/declined fields and partial birthdays are supported. DOB/country and the People API token are not persisted.
+- No DynamoDB or planner/profile API is added. Cognito necessarily maintains managed authentication account metadata. Planner drafts now use `sessionStorage` under `hiramyatech-session-plan:<Cognito sub>` and are removed on sign-out. Old anonymous local-storage data is untouched and is not imported into signed-in sessions. Theme remains in local storage.
+- Backend secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` must be configured in Amplify. The user created Google client `661439942692-a9kq47gbcff0t9h54op5gictv00j8skt.apps.googleusercontent.com` without a redirect URI; its public ID is in `auth-config.json`. The optional `GOOGLE_CLIENT_ID` build environment variable can override that frontend default and must match the backend secret. `AUTH_SETUP.md` contains Google console steps, scopes, deployment callback setup and local use. Backend secrets/callback deployment are still pending; live OAuth has not been verified.
+- `npm test` checks profile parsing, consent and account binding. `npm run test:browser` contains mocked browser integration tests; Chromium is downloaded but cannot launch on this WSL host until its Linux libraries are installed (`npx playwright install-deps chromium`, requires sudo). Browser tests have not run successfully yet. Frontend build, backend TypeScript and JavaScript checks pass.
+- Recent planner additions: investable-asset pie chart (primary home excluded as legacy), real-estate flags above 30%/50%, MF + Equity flags below 30%/20%, independent EMI emergency funds, and Protection gauges/comments for both insurance types and both emergency funds.
 
 ## Purpose
 
