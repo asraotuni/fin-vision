@@ -34,6 +34,7 @@ let assetCount = 0;
 let loanCount = 0;
 let policyCount = 0;
 let emergencyFundCount = 0;
+let emergencyEmiFundCount = 0;
 let expenseCount = 0;
 let restoredAssetList = false;
 let preferredDeploymentAllocations = null;
@@ -481,9 +482,52 @@ function assets(){
 }
 
 function updateAssetSummary(){
+  renderWealthAllocation();
   const total = assets().filter(asset => !asset.excludedFromRetirement).reduce((sum, asset) => sum + asset.value, 0);
   $('totalAssets').textContent = money(total);
   $('emptyAssets').classList.toggle('hidden', $('assetList').children.length > 0);
+}
+
+function renderWealthAllocation(){
+  const groups = [
+    {name:'Real estate', types:['Independent house / villa', 'Flat', 'Plot', 'Agricultural land'], color:'#648bc4'},
+    {name:'Gold', types:['Gold'], color:'#d4b339'},
+    {name:'PF', types:['EPF / PF', 'PPF'], color:'#8b79c6'},
+    {name:'FD', types:['Fixed deposit'], color:'#48a9a6'},
+    {name:'MF + Equity', types:['Mutual funds', 'Stocks'], color:'#bc75a2'},
+    {name:'Other assets', types:[], color:'#87958f'}
+  ];
+  groups.forEach(group => group.value = 0);
+  assets().filter(asset => !asset.excludedFromRetirement).forEach(asset => {
+    const group = groups.find(item => item.types.includes(asset.type)) || groups[groups.length - 1];
+    group.value += asset.value;
+  });
+  const total = groups.reduce((sum, group) => sum + group.value, 0);
+  let end = 0;
+  const slices = groups.filter(group => group.value > 0).map(group => {
+    const start = end;
+    end += group.value / total * 100;
+    return `${group.color} ${start}% ${end}%`;
+  });
+  const percentage = amount => `${(total ? amount / total * 100 : 0).toFixed(1)}%`;
+  $('wealthAllocationPie').style.background = total ? `conic-gradient(${slices.join(', ')})` : 'var(--line)';
+  $('wealthAllocationPie').setAttribute('aria-label', total
+    ? `Asset allocation: ${groups.map(group => `${group.name} ${percentage(group.value)}`).join(', ')}`
+    : 'No asset values entered');
+  $('wealthAllocationTotal').textContent = money(total);
+  $('wealthAllocationLegend').innerHTML = groups.map(group => `<li><span class="wealth-allocation-key" style="background:${group.color}" aria-hidden="true"></span><span>${group.name}</span><strong>${percentage(group.value)}</strong><span class="wealth-allocation-value">${money(group.value)}</span></li>`).join('');
+  const share = total ? groups[0].value / total : 0;
+  const flag = $('wealthAllocationFlag');
+  flag.classList.toggle('status-alert', total > 0 && share > .3 && share <= .5);
+  flag.classList.toggle('status-bad', total > 0 && share > .5);
+  flag.textContent = !total ? 'Add asset values to see your allocation.'
+    : `${share > .5 ? 'High concentration' : share > .3 ? 'Caution' : 'Real estate allocation'}: ${percentage(groups[0].value)} in real estate. ${share > .5 ? 'Above the 50% threshold.' : share > .3 ? 'Above the 30% threshold.' : 'Within the 30% threshold.'}`;
+  const mfEquityShare = total ? groups[4].value / total : 0;
+  const mfEquityFlag = $('wealthAllocationMfEquityFlag');
+  mfEquityFlag.classList.toggle('status-alert', total > 0 && mfEquityShare < .3 && mfEquityShare >= .2);
+  mfEquityFlag.classList.toggle('status-bad', total > 0 && mfEquityShare < .2);
+  mfEquityFlag.textContent = !total ? 'Add asset values to assess your MF + Equity allocation.'
+    : `${mfEquityShare < .2 ? 'Low MF + Equity allocation' : mfEquityShare < .3 ? 'Caution' : 'MF + Equity allocation'}: ${percentage(groups[4].value)}. ${mfEquityShare < .2 ? 'Below the 20% threshold.' : mfEquityShare < .3 ? 'Below the 30% threshold.' : 'At or above the 30% threshold.'}`;
 }
 
 function addLoan(loan = {}, shouldFocus = true){
@@ -530,13 +574,14 @@ function updateLoanSummary(){
   $('emptyLoans').classList.toggle('hidden', $('loanList').children.length > 0);
 }
 
-function addEmergencyFund(fund = {}, shouldFocus = true){
-  emergencyFundCount += 1;
+function addEmergencyFundRow(fund, shouldFocus, config){
+  if(config.kind === 'emi') emergencyEmiFundCount += 1;
+  else emergencyFundCount += 1;
   const selectedLocation = EMERGENCY_FUND_LOCATIONS.includes(fund.location) ? fund.location : 'Savings account';
   const isCustom = selectedLocation === 'Other / custom';
   const row = document.createElement('div');
   row.className = 'emergency-row';
-  row.dataset.emergencyFundId = emergencyFundCount;
+  row.dataset.emergencyFundId = config.kind === 'emi' ? emergencyEmiFundCount : emergencyFundCount;
   row.innerHTML = `
     <div class="emergency-location-control">
       <select class="family-input emergency-location" aria-label="Where emergency fund is saved">
@@ -549,21 +594,32 @@ function addEmergencyFund(fund = {}, shouldFocus = true){
     <button type="button" class="remove-member" aria-label="Remove emergency fund">×</button>`;
   row.querySelector('.remove-member').addEventListener('click', () => {
     row.remove();
-    updateEmergencyFundSummary();
+    config.updateSummary();
     saveState();
   });
-  $('emergencyFundList').appendChild(row);
-  updateEmergencyFundSummary();
+  $(config.listId).appendChild(row);
+  config.updateSummary();
   if(shouldFocus) row.querySelector('.emergency-location').focus();
 }
 
-function emergencyFunds(){
-  return [...$('emergencyFundList').querySelectorAll('.emergency-row')].map(row => ({
+function emergencyFundsFor(listId){
+  return [...$(listId).querySelectorAll('.emergency-row')].map(row => ({
     location: row.querySelector('.emergency-location').value,
     customLocation: row.querySelector('.custom-emergency-location').value.trim(),
     amount: numericValue(row.querySelector('.emergency-amount')),
     notes: row.querySelector('.emergency-notes').value.trim()
   }));
+}
+
+function emergencyFunds(){ return emergencyFundsFor('emergencyFundList'); }
+function emergencyEmiFunds(){ return emergencyFundsFor('emergencyEmiFundList'); }
+
+function addEmergencyFund(fund = {}, shouldFocus = true){
+  addEmergencyFundRow(fund, shouldFocus, {kind:'general', listId:'emergencyFundList', updateSummary:updateEmergencyFundSummary});
+}
+
+function addEmergencyEmiFund(fund = {}, shouldFocus = true){
+  addEmergencyFundRow(fund, shouldFocus, {kind:'emi', listId:'emergencyEmiFundList', updateSummary:updateEmergencyEmiFundSummary});
 }
 
 function updateEmergencyFundSummary(){
@@ -575,6 +631,19 @@ function updateEmergencyFundSummary(){
   $('emergencyFundMonths').textContent = `${months.toFixed(months >= 10 || months % 1 === 0 ? 0 : 1)} month${Math.abs(months - 1) < .05 ? '' : 's'}`;
   $('emptyEmergencyFunds').classList.toggle('hidden', fundItems.length > 0);
   const summary = document.querySelector('.emergency-total');
+  summary.classList.remove('status-good', 'status-alert', 'status-bad');
+  setStatusTone(summary, months >= 6 ? 'good' : months >= 3 ? 'alert' : 'bad');
+}
+
+function updateEmergencyEmiFundSummary(){
+  const fundItems = emergencyEmiFunds();
+  const total = fundItems.reduce((sum, fund) => sum + fund.amount, 0);
+  const monthlyEmis = value('loanPayments');
+  const months = monthlyEmis > 0 ? total / monthlyEmis : 0;
+  $('totalEmergencyEmiFund').textContent = money(total);
+  $('emergencyEmiFundMonths').textContent = `${months.toFixed(months >= 10 || months % 1 === 0 ? 0 : 1)} month${Math.abs(months - 1) < .05 ? '' : 's'}`;
+  $('emptyEmergencyEmiFunds').classList.toggle('hidden', fundItems.length > 0);
+  const summary = $('emergencyEmiFundSummary');
   summary.classList.remove('status-good', 'status-alert', 'status-bad');
   setStatusTone(summary, months >= 6 ? 'good' : months >= 3 ? 'alert' : 'bad');
 }
@@ -768,6 +837,7 @@ function saveState(){
     loans: loans(),
     majorExpenses: majorExpenses(),
     emergencyFunds: emergencyFunds(),
+    emergencyEmiFunds: emergencyEmiFunds(),
     healthPolicies: policies('health'),
     termPolicies: policies('term'),
     preferredDeploymentAllocations,
@@ -839,6 +909,9 @@ function restoreState(){
     if(Array.isArray(state.emergencyFunds)){
       state.emergencyFunds.forEach(fund => addEmergencyFund(fund, false));
     }
+    if(Array.isArray(state.emergencyEmiFunds)){
+      state.emergencyEmiFunds.forEach(fund => addEmergencyEmiFund(fund, false));
+    }
     if(Array.isArray(state.healthPolicies)){
       state.healthPolicies.forEach(policy => addPolicy('health', policy, false));
     } else if(state.health === 'yes' || parseAmount(state.fields?.healthCover)){
@@ -903,11 +976,12 @@ $('addAssetBtn').addEventListener('click', () => { addAsset(); saveState(); });
 $('addLoanBtn').addEventListener('click', () => { addLoan(); saveState(); });
 $('addExpenseBtn').addEventListener('click', () => { addMajorExpense(); saveState(); });
 $('addEmergencyFundBtn').addEventListener('click', () => { addEmergencyFund(); saveState(); });
+$('addEmergencyEmiFundBtn').addEventListener('click', () => { addEmergencyEmiFund(); saveState(); });
 $('addHealthPolicyBtn').addEventListener('click', () => { addPolicy('health'); saveState(); });
 $('addTermPolicyBtn').addEventListener('click', () => { addPolicy('term'); saveState(); });
 document.querySelectorAll('input').forEach(input => input.addEventListener('input', () => {
   if(isCurrencyInput(input)) formatCurrencyInput(input);
-  updateBasics(); updateCash(); updateRiskProfile(); updateProtectionSummary(); updateEmergencyFundSummary(); updateExpenseSummary(); saveState();
+  updateBasics(); updateCash(); updateRiskProfile(); updateProtectionSummary(); updateEmergencyFundSummary(); updateEmergencyEmiFundSummary(); updateExpenseSummary(); saveState();
 }));
 document.querySelectorAll('select[id]').forEach(select => select.addEventListener('change', saveState));
 $('familyList').addEventListener('input', saveState);
@@ -959,6 +1033,22 @@ $('emergencyFundList').addEventListener('change', event => {
     if(isCustom) customInput.focus();
   }
   updateEmergencyFundSummary(); saveState();
+});
+['emergencyFundList', 'emergencyEmiFundList'].forEach(listId => {
+  if(listId === 'emergencyFundList') return;
+  $(listId).addEventListener('input', event => {
+    if(isCurrencyInput(event.target)) formatCurrencyInput(event.target);
+    updateEmergencyEmiFundSummary(); saveState();
+  });
+  $(listId).addEventListener('change', event => {
+    if(event.target.classList.contains('emergency-location')){
+      const customInput = event.target.closest('.emergency-row').querySelector('.custom-emergency-location');
+      const isCustom = event.target.value === 'Other / custom';
+      customInput.classList.toggle('hidden', !isCustom);
+      if(isCustom) customInput.focus();
+    }
+    updateEmergencyEmiFundSummary(); saveState();
+  });
 });
 ['health','term'].forEach(kind => {
   const list = $(`${kind}PolicyList`);
@@ -1031,4 +1121,4 @@ if(!restoredAssetList){
   addAsset({type:'Mutual funds', value:500000, returnRate:11}, false);
 }
 prepareCurrencyInputs();
-updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateEmergencyFundSummary(); updateProtectionSummary(); showPanel(restoredStep);
+updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateEmergencyFundSummary(); updateEmergencyEmiFundSummary(); updateProtectionSummary(); showPanel(restoredStep);

@@ -222,6 +222,16 @@
               <div class="empty-family" id="emptyEmergencyFunds"><span>+</span><p>No emergency funds added.</p></div>
               <div class="emergency-total"><div><span>Total emergency fund</span><strong id="totalEmergencyFund">₹ 0</strong></div><div><span>Expense cover</span><strong id="emergencyFundMonths">0 months</strong></div></div>
             </div>
+            <div class="emergency-section">
+              <div class="section-title">
+                <div><h3>Emergency fund for EMIs</h3><p>Set aside accessible money specifically to continue EMI payments if income is interrupted.</p></div>
+                <button type="button" class="add-member" id="addEmergencyEmiFundBtn"><span>+</span> Add fund</button>
+              </div>
+              <div class="emergency-head" aria-hidden="true"><span>Where it is saved</span><span>Amount</span><span>Notes (optional)</span><span></span></div>
+              <div class="emergency-list" id="emergencyEmiFundList"></div>
+              <div class="empty-family" id="emptyEmergencyEmiFunds"><span>+</span><p>No EMI emergency funds added.</p></div>
+              <div class="emergency-total" id="emergencyEmiFundSummary"><div><span>Total EMI emergency fund</span><strong id="totalEmergencyEmiFund">₹ 0</strong></div><div><span>EMI cover</span><strong id="emergencyEmiFundMonths">0 months</strong></div></div>
+            </div>
             <div class="policy-section">
               <div class="section-title">
                 <div><h3>Health insurance</h3><p>Add personal and employer-provided health policies.</p></div>
@@ -251,6 +261,16 @@
               <div><h2>What have you built so far?</h2><p>Add everything you own that contributes to your financial picture.</p></div>
             </div>
             <div class="form-grid">
+              <section class="wealth-allocation full" aria-labelledby="wealthAllocationHeading">
+                <div class="section-title"><div><h3 id="wealthAllocationHeading">Your asset allocation</h3><p>Current investable assets, excluding your primary home.</p></div></div>
+                <div class="wealth-allocation-layout">
+                  <div id="wealthAllocationPie" class="wealth-allocation-pie" role="img" aria-label="No asset values entered"></div>
+                  <div><p class="wealth-allocation-total">Total wealth <strong id="wealthAllocationTotal">₹ 0</strong></p><ul id="wealthAllocationLegend" class="wealth-allocation-legend"></ul></div>
+                </div>
+                <p id="wealthAllocationFlag" class="wealth-allocation-flag" role="status"></p>
+                <p id="wealthAllocationMfEquityFlag" class="wealth-allocation-flag wealth-allocation-mf-equity-flag" role="status"></p>
+                <p class="wealth-allocation-note">Your primary home is excluded from this distribution and treated as a legacy asset. More real estate can build a legacy, but reduces liquidity and may lower overall returns. Real estate includes houses, flats, plots and agricultural land; PF includes EPF / PF and PPF.</p>
+              </section>
               <div class="asset-section full">
                 <div class="section-title">
                   <div><h3>Your assets</h3><p>Give each asset its own growth assumption.</p></div>
