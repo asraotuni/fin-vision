@@ -4,6 +4,8 @@ Last updated: 2026-09-05
 
 ## Authentication iteration (2026-09-05; supersedes older local-use and persistence notes below)
 
+- Deployment fixes: lockfile regenerated with npm 10.9.3 in commit `d7dc860` to restore four nested OpenTelemetry entries required by clean install. Use npm 10.9.3 for dependency updates and validate `npm ci` before pushing; the actual Amplify npm version has not been captured in the supplied logs.
+- Auth construction requires `loginWith.email: true` even with Google federation. `amplify/backend.ts` continues to restrict the app client to Google, disable native sign-up/password flows, and disable guest identities. Local CDK construct validation uses dummy OAuth credentials; deployed Google sign-in still needs verification.
 - Google SSO code now uses Amplify Gen 2 Auth / Cognito in `amplify/auth/resource.ts`, wired through `amplify/backend.ts`. Only Google is enabled; mobile/OTP and email/OTP are visible disabled placeholders.
 - `auth.js` gates the planner until a Cognito Google session exists, displays the user's name, and exposes sign-out. `theme.js` works before login. The build bundles the auth SDK using esbuild. Serve the built `dist/` directory with `python3 -m http.server 8000 --directory dist` after `npm run build`.
 - Additional DOB and region/country consent uses the Google People API through a separate optional button after login. The Google subject must match the Cognito Google identity. Missing/declined fields and partial birthdays are supported. DOB/country and the People API token are not persisted.

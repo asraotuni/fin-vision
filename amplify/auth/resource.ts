@@ -2,6 +2,9 @@ import { defineAuth, secret } from '@aws-amplify/backend';
 
 export const auth = defineAuth({
   loginWith: {
+    // Amplify requires a native sign-in attribute to construct the user pool.
+    // backend.ts restricts the app client to Google and disables native sign-up.
+    email: true,
     externalProviders: {
       google: {
         clientId: secret('GOOGLE_CLIENT_ID'),
