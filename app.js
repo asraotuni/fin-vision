@@ -400,18 +400,21 @@ function goalReadiness(predicate, assetItems, monthly, returnRate, loans, expens
   return {score:Math.min(100, covered / total * 100), total};
 }
 
-function renderGauge(name, score, meta){
+function coverageTone(score){
+  return score >= 90 ? 'good' : score >= 60 ? 'alert' : 'bad';
+}
+
+function renderGauge(name, score, meta, tone = null){
   const gauge = $(`${name}Gauge`);
   const normalizedScore = score === null ? 0 : Math.min(100, Math.max(0, score));
   gauge.style.setProperty('--gauge', normalizedScore);
   gauge.classList.remove('status-good', 'status-alert', 'status-bad');
-  if(score !== null) setStatusTone(gauge, normalizedScore >= 90 ? 'good' : normalizedScore >= 60 ? 'alert' : 'bad');
+  if(score !== null) setStatusTone(gauge, tone || coverageTone(normalizedScore));
   $(`${name}GaugeValue`).textContent = score === null ? '—' : `${Math.round(normalizedScore)}%`;
   $(`${name}GaugeMeta`).textContent = meta;
 }
 
-function calculatePlanGaugeScores({projected, needed, retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear}){
-  const retirementScore = needed ? Math.min(100, projected / needed * 100) : 100;
+function insuranceCoverageScores(){
   const healthCover = policies('health').reduce((sum, policy) => sum + policy.cover, 0);
   const termCover = policies('term').reduce((sum, policy) => sum + policy.cover, 0);
   const targetHealth = Math.max(1000000, monthlyRetirementLivingExpenses() * 12);
@@ -419,9 +422,14 @@ function calculatePlanGaugeScores({projected, needed, retirementAssets, monthly,
   const targetTerm = termCoverNeed();
   const healthScore = Math.min(100, healthCover / targetHealth * 100);
   const termScore = targetTerm > 0 ? Math.min(100, termCover / targetTerm * 100) : 100;
+  return {healthScore, termScore, healthCover, termCover, targetHealth, targetTerm, termIncomeYears};
+}
+
+function calculatePlanGaugeScores({projected, needed, retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear}){
+  const retirementScore = needed ? Math.min(100, projected / needed * 100) : 100;
   const education = goalReadiness(text => text.includes('education'), retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear);
   const marriage = goalReadiness(text => text.includes('marriage'), retirementAssets, monthly, returnRate, totalLoanValue, expenseItems, currentYear);
-  return {retirementScore, healthScore, termScore, healthCover, termCover, targetHealth, targetTerm, termIncomeYears, education, marriage};
+  return {retirementScore, ...insuranceCoverageScores(), education, marriage};
 }
 
 function renderPlanGauges(scores, projected, needed){
@@ -633,6 +641,7 @@ function updateEmergencyFundSummary(){
   const summary = document.querySelector('.emergency-total');
   summary.classList.remove('status-good', 'status-alert', 'status-bad');
   setStatusTone(summary, months >= 6 ? 'good' : months >= 3 ? 'alert' : 'bad');
+  renderEmergencyAdequacy('emergencyAdequacy', total, monthlyExpenses, summary);
 }
 
 function updateEmergencyEmiFundSummary(){
@@ -646,6 +655,29 @@ function updateEmergencyEmiFundSummary(){
   const summary = $('emergencyEmiFundSummary');
   summary.classList.remove('status-good', 'status-alert', 'status-bad');
   setStatusTone(summary, months >= 6 ? 'good' : months >= 3 ? 'alert' : 'bad');
+  renderEmergencyAdequacy('emergencyEmiAdequacy', total, monthlyEmis, summary);
+}
+
+function renderEmergencyAdequacy(name, total, monthlyCost, summary){
+  const isEmi = name === 'emergencyEmiAdequacy';
+  const basis = isEmi ? 'monthly EMIs' : 'monthly household expenses (including EMIs)';
+  const target = monthlyCost * 6;
+  const months = monthlyCost > 0 ? total / monthlyCost : 0;
+  const tone = months >= 6 ? 'good' : months >= 3 ? 'alert' : 'bad';
+  const comment = $(`${name}Comment`);
+  comment.classList.remove('status-good', 'status-alert', 'status-bad');
+  if(!monthlyCost){
+    renderGauge(name, null, `${money(total)} saved; no ${isEmi ? 'EMIs' : 'household expenses'} entered`);
+    summary.classList.remove('status-good', 'status-alert', 'status-bad');
+    $(isEmi ? 'emergencyEmiFundMonths' : 'emergencyFundMonths').textContent = '—';
+    comment.textContent = `Coverage is not assessed because ${basis} are zero. ${isEmi ? 'If you have EMI payments, enter them in Cash Flow; if you have none, no EMI reserve target applies.' : 'Enter expenses in Cash Flow to calculate the six-month reserve target.'}`;
+    return;
+  }
+  renderGauge(name, total / target * 100, `${money(total)} saved / ${money(target)} six-month target`, tone);
+  setStatusTone(comment, tone);
+  const labels = {bad:'Red — Below three months of cover', alert:'Yellow — Three to under six months of cover', good:'Green — At least six months of cover'};
+  const shortfall = Math.max(0, target - total);
+  comment.textContent = `${labels[tone]}. The target is six times your ${basis} of ${money(monthlyCost)}. ${shortfall > 0 ? `Add ${money(shortfall)} to reach the full target.` : 'Your recorded savings meet the six-month target.'} The gauge shows progress toward six months: red below 50%, yellow from 50% to below 100%, and green at 100%. Keep these funds accessible and avoid recording the same savings in both emergency fund sections.`;
 }
 
 function addPolicy(kind, policy = {}, shouldFocus = true){
@@ -704,18 +736,32 @@ function updateProtectionSummary(){
   $('totalTermPremium').textContent = money(termPremium);
   $('emptyHealthPolicies').classList.toggle('hidden', healthPolicies.length > 0);
   $('emptyTermPolicies').classList.toggle('hidden', termPolicies.length > 0);
-  const suggestedTermCover = termCoverNeed();
-  const incomeYears = remainingIncomeReplacementYears();
-  if(!healthCover){
-    $('insuranceHint').textContent = 'Add health cover to protect your savings from unexpected medical costs.';
-    setStatusTone(document.querySelector('.warning'), 'bad');
-  } else if(suggestedTermCover > 0 && (!termCover || termCover < suggestedTermCover)){
-    $('insuranceHint').textContent = `Consider total term cover of around ${money(suggestedTermCover)} to replace ${incomeYears} remaining year${incomeYears === 1 ? '' : 's'} of income until retirement.`;
-    setStatusTone(document.querySelector('.warning'), 'alert');
-  } else {
-    $('insuranceHint').textContent = 'Your core protection is recorded. Review cover amounts and nominees every year.';
-    setStatusTone(document.querySelector('.warning'), 'good');
+  renderProtectionAdequacy(insuranceCoverageScores());
+}
+
+function renderProtectionAdequacy(scores){
+  const labels = {bad:'Red — Low coverage', alert:'Yellow — Partial coverage', good:'Green — At least 90% of target covered'};
+  for(const [kind, cover, target, score] of [
+    ['Health', scores.healthCover, scores.targetHealth, scores.healthScore],
+    ['Term', scores.termCover, scores.targetTerm, scores.termScore]
+  ]){
+    const tone = coverageTone(score);
+    const shortfall = Math.max(0, target - cover);
+    renderGauge(`protection${kind}`, score, `${money(cover)} cover / ${money(target)} target`);
+    const comment = $(`protection${kind}Comment`);
+    setStatusTone(comment, tone);
+    const gap = shortfall > 0 ? `Shortfall to the full target: ${money(shortfall)}.` : 'Your entered cover meets the full target.';
+    const basis = kind === 'Health'
+      ? 'The planner’s health target is the greater of ₹ 10,00,000 or 12 months of current living expenses excluding EMIs and term premiums. Review who is covered, policy limits, exclusions and whether employer cover will continue after leaving work.'
+      : `The planner’s term target replaces ${scores.termIncomeYears} year${scores.termIncomeYears === 1 ? '' : 's'} of take-home income until retirement, capped at 10 years. It does not include outstanding loans or dependants’ separate future needs. Review those needs and whether employer cover will continue after leaving work.`;
+    comment.textContent = target === 0
+      ? `Green — No income-replacement target under the current inputs. ${scores.termIncomeYears === 0 ? 'You are at or beyond the entered retirement age.' : 'No monthly take-home income is entered; add it in Cash Flow to assess income replacement.'} This does not establish that no life cover is needed. ${basis}`
+      : `${labels[tone]}. ${gap} ${basis}`;
   }
+  const overallTone = coverageTone(Math.min(scores.healthScore, scores.termScore));
+  const hint = $('insuranceHint');
+  setStatusTone(hint.closest('.warning'), overallTone);
+  hint.textContent = 'Coverage measures use the same targets as Your Plan: red below 60%, yellow from 60% to below 90%, and green from 90%. Green can still leave a shortfall to the full target; the comments above show the exact gap. These measures compare entered cover amounts with the planner’s illustrative targets. Review policy terms, family needs and nominees regularly.';
 }
 
 function addMajorExpense(expense = {}, shouldFocus = true){
