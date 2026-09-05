@@ -46,22 +46,32 @@
 
       <section class="auth-card" id="loginPanel" aria-labelledby="loginHeading">
         <h2 id="loginHeading">Sign in to your planner</h2>
-        <p>Continue with Google to start your plan.</p>
+        <p>Use your mobile number or Google account to start your plan.</p>
         <button type="button" class="google-signin" id="googleSignInBtn" disabled>Continue with Google</button>
         <div class="auth-alternatives">
-          <button type="button" disabled>Mobile number + OTP <small>Coming soon</small></button>
+          <button type="button" class="mobile-otp-start" id="mobileOtpStartBtn" disabled>Mobile number + OTP</button>
           <button type="button" disabled>Email + OTP <small>Coming soon</small></button>
         </div>
-        <p class="auth-note">Google sign-in shares your name and email for your account. After signing in, you can choose to share your date of birth and region/country. Your plan is kept only in this tab until you sign out; it is not saved to a server.</p>
+        <form id="mobileOtpForm" class="otp-form" hidden>
+          <label for="mobileNumber">Mobile number <small>Indian numbers are sent as +91.</small></label>
+          <input id="mobileNumber" type="tel" inputmode="numeric" autocomplete="tel" placeholder="98765 43210" maxlength="14" required>
+          <button type="submit" class="add-member">Send OTP</button>
+        </form>
+        <form id="verifyOtpForm" class="otp-form" hidden>
+          <label for="otpCode">Enter the OTP sent to <strong id="otpDestination"></strong></label>
+          <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit OTP" maxlength="6" required>
+          <div class="otp-actions"><button type="submit" class="add-member">Verify OTP</button><button type="button" class="text-button" id="resendOtpBtn">Resend OTP</button><button type="button" class="text-button" id="changeMobileBtn">Change number</button></div>
+        </form>
+        <p class="auth-note">Mobile sign-in sends a one-time code to your phone. Google sign-in shares your name and email for your account. Your plan is kept only in this tab until you sign out; it is not saved to a server.</p>
         <p id="authStatus" role="status">Loading sign-in. If this message remains, reload the page.</p>
         <noscript>Enable JavaScript to sign in and use the planner.</noscript>
       </section>
 
       <section class="auth-profile" id="accountPanel" aria-labelledby="accountHeading" hidden>
-        <h2 id="accountHeading">Your Google profile</h2>
-        <dl><div><dt>Name</dt><dd id="accountName">Not provided</dd></div><div><dt>Date of birth</dt><dd id="accountDob">Not shared</dd></div><div><dt>Region / country</dt><dd id="accountCountry">Not shared</dd></div></dl>
-        <p class="auth-note">With your consent, Google can share your birthday and address information so we can display your date of birth and region/country. These details stay in memory and are cleared on reload or sign-out. You can continue without sharing them.</p>
-        <button type="button" class="add-member" id="shareGoogleProfileBtn" disabled>Share DOB and country from Google</button>
+        <h2 id="accountHeading">Your account</h2>
+        <dl><div><dt>Sign-in method</dt><dd id="accountMethod">Not provided</dd></div><div><dt>Name</dt><dd id="accountName">Not provided</dd></div><div><dt>Date of birth</dt><dd id="accountDob">Not shared</dd></div><div><dt>Region / country</dt><dd id="accountCountry">Not shared</dd></div></dl>
+        <div id="googleProfileDetails"><p class="auth-note">With your consent, Google can share your birthday and address information so we can display your date of birth and region/country. These details stay in memory and are cleared on reload or sign-out. You can continue without sharing them.</p>
+        <button type="button" class="add-member" id="shareGoogleProfileBtn" disabled>Share DOB and country from Google</button></div>
         <p id="profileStatus" role="status"></p>
       </section>
 

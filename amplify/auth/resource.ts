@@ -2,9 +2,12 @@ import { defineAuth, secret } from '@aws-amplify/backend';
 
 export const auth = defineAuth({
   loginWith: {
-    // Amplify requires a native sign-in attribute to construct the user pool.
-    // backend.ts restricts the app client to Google and disables native sign-up.
+    // Retained for Cognito's native user-pool configuration. The UI currently
+    // offers passwordless mobile OTP, not email/password sign-in.
     email: true,
+    phone: {
+      otpLogin: true,
+    },
     externalProviders: {
       google: {
         clientId: secret('GOOGLE_CLIENT_ID'),
@@ -26,5 +29,9 @@ export const auth = defineAuth({
         'http://localhost:8000/',
       ],
     },
+  },
+  // Lets Amplify create Cognito's SNS publishing role for SMS OTP delivery.
+  senders: {
+    sms: {},
   },
 });

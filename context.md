@@ -4,13 +4,14 @@ Last updated: 2026-09-05
 
 ## Authentication iteration (2026-09-05; supersedes older local-use and persistence notes below)
 
-- Deployment fixes: lockfile regenerated with npm 10.9.3 in commit `d7dc860` to restore four nested OpenTelemetry entries required by clean install. Use npm 10.9.3 for dependency updates and validate `npm ci` before pushing; the actual Amplify npm version has not been captured in the supplied logs.
-- Auth construction requires `loginWith.email: true` even with Google federation. `amplify/backend.ts` continues to restrict the app client to Google, disable native sign-up/password flows, and disable guest identities. Local CDK construct validation uses dummy OAuth credentials; deployed Google sign-in still needs verification.
-- Google SSO code now uses Amplify Gen 2 Auth / Cognito in `amplify/auth/resource.ts`, wired through `amplify/backend.ts`. Only Google is enabled; mobile/OTP and email/OTP are visible disabled placeholders.
-- `auth.js` gates the planner until a Cognito Google session exists, displays the user's name, and exposes sign-out. `theme.js` works before login. The build bundles the auth SDK using esbuild. Serve the built `dist/` directory with `python3 -m http.server 8000 --directory dist` after `npm run build`.
+- Deployment fixes: commit `d7dc860` regenerated the lockfile with npm 10.9.3 to restore four nested OpenTelemetry entries required by clean install. Commit `2cfffce` enabled the email attribute required by Amplify Auth, and commit `d31b6be` makes the Cognito app client wait for the Google provider. Use npm 10.9.3 for dependency updates and validate `npm ci` before pushing.
+- Google SSO and passwordless mobile OTP are enabled in Cognito. `amplify/backend.ts` permits both Cognito native authentication and Google, enables `ALLOW_USER_AUTH`, leaves native sign-up available for first-time mobile OTP users, and disables guest identities. The CloudFormation app client still depends on the Google provider.
+- Pending: replace Cognito's generated `*.auth.ap-south-1.amazoncognito.com` sign-in domain with `auth.hiramyatech.com`. This requires an ACM certificate in `us-east-1`, Cognito custom-domain and GoDaddy DNS setup, updating the Google OAuth origin/redirect URI, and overriding the frontend Auth configuration to use the new domain.
+- Google SSO and mobile SMS OTP use Amplify Gen 2 Auth / Cognito in `amplify/auth/resource.ts`, wired through `amplify/backend.ts`. Email OTP remains a disabled placeholder. The app uses a native SMS sender role, so deploy first and configure AWS End User Messaging SMS/SNS sandbox or production delivery. Indian public delivery additionally needs DLT entity/template registration and confirmation of the current AWS sender configuration.
+- `auth.js` gates the planner until a Cognito Google or mobile session exists, displays the sign-in method and the Google name or authenticated mobile number, and exposes sign-out. Google-only DOB/country consent remains hidden for mobile sessions. `theme.js` works before login. The build bundles the auth SDK using esbuild. Serve the built `dist/` directory with `python3 -m http.server 8000 --directory dist` after `npm run build`.
 - Additional DOB and region/country consent uses the Google People API through a separate optional button after login. The Google subject must match the Cognito Google identity. Missing/declined fields and partial birthdays are supported. DOB/country and the People API token are not persisted.
 - No DynamoDB or planner/profile API is added. Cognito necessarily maintains managed authentication account metadata. Planner drafts now use `sessionStorage` under `hiramyatech-session-plan:<Cognito sub>` and are removed on sign-out. Old anonymous local-storage data is untouched and is not imported into signed-in sessions. Theme remains in local storage.
-- Backend secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` must be configured in Amplify. The user created Google client `661439942692-a9kq47gbcff0t9h54op5gictv00j8skt.apps.googleusercontent.com` without a redirect URI; its public ID is in `auth-config.json`. The optional `GOOGLE_CLIENT_ID` build environment variable can override that frontend default and must match the backend secret. `AUTH_SETUP.md` contains Google console steps, scopes, deployment callback setup and local use. Backend secrets/callback deployment are still pending; live OAuth has not been verified.
+- Backend secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured in Amplify for Google SSO. The public Google client ID is in `auth-config.json`. The Cognito callback origin and `/oauth2/idpresponse` URL have been added to the Google OAuth client, and the deployed flow has reached Google's account chooser. Verify the full return to the app, session refresh, and sign-out before considering live OAuth complete. `AUTH_SETUP.md` contains the detailed setup and test steps.
 - `npm test` checks profile parsing, consent and account binding. `npm run test:browser` contains mocked browser integration tests; Chromium is downloaded but cannot launch on this WSL host until its Linux libraries are installed (`npx playwright install-deps chromium`, requires sudo). Browser tests have not run successfully yet. Frontend build, backend TypeScript and JavaScript checks pass.
 - Recent planner additions: investable-asset pie chart (primary home excluded as legacy), real-estate flags above 30%/50%, MF + Equity flags below 30%/20%, independent EMI emergency funds, and Protection gauges/comments for both insurance types and both emergency funds.
 
@@ -18,7 +19,7 @@ Last updated: 2026-09-05
 
 This repository contains a frontend MVP for HiramyaTech's India-focused personal financial and retirement planner. It collects household, cash-flow, risk, asset, expense, and insurance information and produces an illustrative retirement report.
 
-The user intends to add authentication (possibly Google SSO), backend storage, and server-generated PDF reports later. For now, keep the application mostly frontend-only.
+Google SSO is now implemented through Amplify Auth / Cognito. Backend storage, B2B tenancy, subscriptions, and server-generated PDF reports remain later work. The planner itself remains mostly frontend-only.
 
 ## Project structure and local use
 
@@ -26,24 +27,24 @@ The user intends to add authentication (possibly Google SSO), backend storage, a
 - `styles.css`: responsive UI and print styling.
 - `app.js`: state, repeatable rows, calculations, report rendering, and local persistence.
 - `.gitignore`: repository exclusions.
-- No framework or build system is currently used.
-- Run locally from the project directory with `python3 -m http.server 8000`, then open `http://localhost:8000`.
+- The app uses an esbuild-based script to bundle the Auth SDK into the static frontend.
+- Run `npm run build`, then serve the built files with `python3 -m http.server 8000 --directory dist` and open `http://localhost:8000`.
 - The Python process is only a static HTTP server; the application itself is HTML, CSS, and JavaScript.
 
 ## Current working-tree status
 
-The active branch is `dev`, tracking Bitbucket's `origin/dev`. Application changes through commit `9ab1ae1` (`infographics improved, dark mode added`) are present on local `dev`, `origin/dev`, and `github/dev`. The working tree now also contains intentional, uncommitted Amplify Gen 2 deployment scaffolding plus this refreshed context. Do not reset or overwrite these changes. The frontend build, Amplify backend TypeScript check, `node --check app.js`, and `git diff --check` pass.
+The active branch is `dev`, tracking Bitbucket's `origin/dev`. Commits through `d31b6be` (`order Cognito Google provider before app client`) are present on local `dev`, `origin/dev`, and `github/dev`. The current documentation edits in `context.md` and `AUTH_SETUP.md` are intentional, uncommitted work. Do not reset or overwrite them. Frontend build, Auth unit tests, Amplify backend TypeScript, JavaScript syntax checks, and `git diff --check` pass.
 
 ## AWS Amplify Gen 2 deployment
 
-The application is deployed on AWS Amplify Gen 2. Authentication, database storage, B2B tenancy, subscriptions, and server-generated PDFs remain future work.
+The application is deployed on AWS Amplify Gen 2. Google SSO is deployed through Cognito; database storage, B2B tenancy, subscriptions, and server-generated PDFs remain future work.
 
 - Production URL: `https://finplanner.hiramyatech.com`
 - The custom domain was configured through the AWS console.
 - Amplify Hosting is connected and the initial deployment has been completed in Asia Pacific (Mumbai), `ap-south-1`.
 
 - `package.json` and `package-lock.json` pin the Amplify Gen 2 backend and CLI toolchain.
-- `amplify/backend.ts` is a valid empty Gen 2 backend. Add Auth, Data, Storage, and Functions there incrementally.
+- `amplify/backend.ts` deploys Google-only Cognito Auth. Add Data, Storage, and Functions incrementally.
 - `amplify.yml` runs `ampx pipeline-deploy` for the current Amplify branch, then builds the static frontend.
 - `scripts/build.mjs` recreates `dist/` and copies only `index.html`, `styles.css`, `app.js`, and `amplify_outputs.json` when backend outputs exist.
 - Generated `dist/`, `.amplify/`, `node_modules/`, and `amplify_outputs.json` are ignored.
@@ -335,7 +336,8 @@ Order and current suggested allocations:
 
 ## Potential future work already discussed
 
-- Authentication, such as Google SSO.
+- Complete live Google SSO verification: return to the app, session refresh, and sign-out.
+- A branded Cognito sign-in domain: `auth.hiramyatech.com`.
 - Backend database storage per user.
 - Server-side or higher-fidelity PDF report generation.
 - A more comprehensive needs-based term-insurance calculation that incorporates loans, dependants, future goals, spouse income, usable assets, and existing cover.

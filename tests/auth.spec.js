@@ -14,7 +14,7 @@ test.beforeAll(async () => {
 async function setup(page, signedIn = false){
   await page.route('https://fonts.googleapis.com/**', route => route.abort());
   await page.route('**/auth.js', route => route.fulfill({contentType:'text/javascript',body:authBundle}));
-  await page.route('**/amplify_outputs.json', route => route.fulfill({json:{auth:{oauth:{redirect_sign_in_uri:['http://localhost:8765/'],redirect_sign_out_uri:['http://localhost:8765/']}}}}));
+  await page.route('**/amplify_outputs.json', route => route.fulfill({json:{auth:{user_pool_id:'test-pool',oauth:{redirect_sign_in_uri:['http://localhost:8765/'],redirect_sign_out_uri:['http://localhost:8765/']}}}}));
   await page.route('**/auth-config.json', route => route.fulfill({json:{googleClientId:'test-client'}}));
   await page.route('https://accounts.google.com/gsi/client', route => route.fulfill({contentType:'text/javascript',body:`window.google={accounts:{oauth2:{initTokenClient(options){window.testConsent=options;return {requestAccessToken(){window.consentOpened=true;}};}}}};`}));
   await page.addInitScript(({signedIn}) => {
@@ -24,17 +24,32 @@ async function setup(page, signedIn = false){
   await page.goto('/');
 }
 
-test('only Google is enabled and planner stays locked until a session exists', async ({page}) => {
+test('Google and mobile OTP are available while the planner stays locked until a session exists', async ({page}) => {
   await setup(page);
   await expect(page.locator('#plannerWorkspace')).toBeHidden();
   await expect(page.locator('#signOutBtn')).toBeHidden();
-  await expect(page.getByRole('button',{name:'Mobile number + OTP Coming soon'})).toBeDisabled();
+  await expect(page.getByRole('button',{name:'Mobile number + OTP'})).toBeEnabled();
   await expect(page.getByRole('button',{name:'Email + OTP Coming soon'})).toBeDisabled();
   await page.locator('#googleSignInBtn').click();
   await expect.poll(()=>page.evaluate(()=>window.testSignInRequest)).toEqual({provider:'Google'});
   await page.evaluate(()=>window.emitTestAuth('signInWithRedirect_failure'));
   await expect(page.locator('#authStatus')).toContainText('cancelled');
   await expect(page.locator('#googleSignInBtn')).toBeEnabled();
+});
+
+test('mobile OTP normalizes an Indian number and signs the user in after code verification', async ({page}) => {
+  await setup(page);
+  await page.locator('#mobileOtpStartBtn').click();
+  await page.locator('#mobileNumber').fill('98765 43210');
+  await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
+  await expect.poll(()=>page.evaluate(()=>window.testMobileSignInRequest)).toEqual({username:'+919876543210',options:{authFlowType:'USER_AUTH',preferredChallenge:'SMS_OTP'}});
+  await expect(page.locator('#verifyOtpForm')).toBeVisible();
+  await page.locator('#otpCode').fill('123456');
+  await page.locator('#verifyOtpForm').getByRole('button',{name:'Verify OTP'}).click();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
+  await expect(page.locator('#accountMethod')).toHaveText('Mobile number + OTP');
+  await expect(page.locator('#accountName')).toHaveText('+919876543210');
+  await expect(page.locator('#googleProfileDetails')).toBeHidden();
 });
 
 test('signed-in planner isolates old drafts and sign-out hides and clears the current draft', async ({page}) => {

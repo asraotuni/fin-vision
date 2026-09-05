@@ -1,6 +1,16 @@
 # Google sign-in setup
 
-This iteration uses Amplify Gen 2 / Amazon Cognito for Google sign-in. Mobile/OTP and email/OTP are disabled UI placeholders. No DynamoDB, Data API or profile database is created.
+This iteration uses Amplify Gen 2 / Amazon Cognito for Google sign-in and passwordless mobile-number SMS OTP. Email OTP remains a disabled UI placeholder. No DynamoDB, Data API or profile database is created.
+
+## Configure SMS OTP delivery
+
+The deployed Cognito pool uses an Amplify-managed IAM role to send OTP messages through Amazon SNS / AWS End User Messaging SMS. Before expecting a real text message:
+
+1. In `ap-south-1`, open **Amazon Cognito → User pools → your Amplify user pool → Authentication methods → SMS configuration** and confirm the SMS role was created after deployment.
+2. Check **AWS End User Messaging SMS** (or the SMS section of Amazon SNS) for sandbox status. In the sandbox, register and verify your own destination mobile number before testing; move the account to production before accepting public sign-ins.
+3. For SMS sent to Indian recipients, complete the required India DLT entity and message-template registration. Cognito's SNS delivery path does not expose those IDs in its user-pool settings, so confirm the current AWS End User Messaging configuration for your production sender before public launch.
+
+The app accepts a 10-digit Indian mobile number and sends it to Cognito in E.164 form, for example `98765 43210` becomes `+919876543210`. SMS OTP and MFA cannot be enabled together for the same Cognito user pool.
 
 ## Find or create your Google OAuth client
 
@@ -29,6 +39,10 @@ Deploy the branch through the existing Amplify pipeline after these values are c
 - Authorized redirect URI: `https://<auth.oauth.domain>/oauth2/idpresponse`
 
 The Google callback goes to Cognito, which then returns the user to `https://finplanner.hiramyatech.com/` (or `http://localhost:8000/`). These app URLs, including trailing slashes, are registered in `amplify/auth/resource.ts`. Additional domains such as Amplify preview URLs or GitHub Pages must be explicitly registered there and redeployed before sign-in will work on them. The old root-based GitHub Pages publishing does not bundle the new auth entry point; publish built `dist/` artifacts if restoring Pages hosting.
+
+### Pending: branded Cognito sign-in domain
+
+Google currently displays Cognito's generated `*.auth.ap-south-1.amazoncognito.com` domain during account selection. A later enhancement will use `auth.hiramyatech.com` instead. It needs an ACM certificate in `us-east-1`, a Cognito custom-domain association, a GoDaddy DNS record, Google OAuth origin and callback updates, and a frontend override of the generated Auth domain.
 
 ## Run locally
 
