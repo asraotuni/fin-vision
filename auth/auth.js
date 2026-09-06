@@ -103,7 +103,9 @@ async function synchronize(){
     }
     return;
   }
-  const identity = await accountRequest('resolve');
+  const defaults = plannerNameDefaults(payload);
+  const identity = Object.values(defaults).some(Boolean)
+    ? await accountRequest('seedProfile', {profile:defaults}) : await accountRequest('resolve');
   if(generation !== sessionGeneration) return;
   if(typeof identity.accountId !== 'string' || !identity.accountId) throw new Error('Account identity could not be verified.');
   if(plannerLoaded){ window.location.replace(config.redirectUrl); return; }
@@ -111,14 +113,14 @@ async function synchronize(){
   authenticatedSubject = payload.sub;
   currentSubject = subject;
   isGoogleSession = Boolean(subject);
-  window.finVisionProfile = plannerNameDefaults(payload);
+  window.finVisionProfile = identity.profile || defaults;
   await loadPlanner();
   if(generation !== sessionGeneration) return;
   signedIn = true;
   byId('accountMethod').textContent = isGoogleSession ? 'Google' : payload.phone_number ? 'Mobile number + OTP' : 'Email';
   updateConnectedMethods(identity);
   byId('accountEmail').textContent = payload.email ? `Google email: ${payload.email}` : '';
-  byId('accountName').textContent = payload.name || [payload.given_name, payload.family_name].filter(Boolean).join(' ') || payload.phone_number || (isGoogleSession ? 'Not provided by Google' : 'Mobile user');
+  byId('accountName').textContent = identity.profile ? [identity.profile.firstName,identity.profile.lastName].filter(Boolean).join(' ') || 'Not provided' : payload.name || [payload.given_name,payload.family_name].filter(Boolean).join(' ') || 'Not provided';
   byId('loginPanel').hidden = true;
   byId('retryAccountBtn').hidden = true;
   byId('accountPanel').hidden = false;
@@ -141,6 +143,23 @@ function syncSession(){
 }
 
 byId('retryAccountBtn').addEventListener('click', () => syncSession());
+
+byId('saveAccountNameBtn').addEventListener('click', async () => {
+  if(!signedIn) return;
+  const generation = sessionGeneration;
+  const button = byId('saveAccountNameBtn');
+  button.disabled = true;
+  byId('nameSaveStatus').textContent = 'Saving your name…';
+  try {
+    const identity = await accountRequest('saveProfile', {profile:{firstName:byId('firstName').value,lastName:byId('lastName').value}});
+    if(!signedIn || generation !== sessionGeneration) return;
+    window.finVisionProfile = identity.profile;
+    byId('accountName').textContent = [identity.profile.firstName,identity.profile.lastName].filter(Boolean).join(' ') || 'Not provided';
+    byId('nameSaveStatus').textContent = 'Name saved for Google and mobile sign-in.';
+  } catch(error){
+    if(signedIn && generation === sessionGeneration) byId('nameSaveStatus').textContent = error.message || 'Could not save your name. Please retry.';
+  } finally { button.disabled = false; }
+});
 
 let googleScriptPromise;
 function loadGoogleLibrary(){

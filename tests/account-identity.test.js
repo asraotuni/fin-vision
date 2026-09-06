@@ -48,6 +48,49 @@ test('unlinked methods never get merged implicitly', async () => {
   assert.notEqual(a.accountId, b.accountId);
 });
 
+test('profile writes use the authenticated account and reject unauthenticated requests', async () => {
+  const {service} = fixture();
+  const handler = createIdentityHandler(service, async token => {
+    if(token !== 'valid') throw new Error('Invalid token');
+    return {iss:'issuer',sub:'owner'};
+  });
+  const body = {action:'saveProfile',accountId:'victim',profile:{firstName:'Owner'}};
+  assert.equal((await handler(event('invalid',body))).statusCode,401);
+  assert.equal((await handler(event('valid',body))).statusCode,200);
+  assert.deepEqual((await service.resolve('issuer#owner')).profile,{firstName:'Owner'});
+  assert.equal((await service.resolve('victim')).profile,undefined);
+});
+
+test('concurrent profile edits and account linking preserve both names and identities', async () => {
+  const {service} = fixture();
+  await service.resolve('google');
+  await Promise.all([service.profile('google',{firstName:'First'}),service.profile('google',{lastName:'Last'}),service.connect('google','mobile',1000)]);
+  const result = await service.resolve('mobile');
+  assert.equal(result.linkedIdentityCount,2);
+  assert.deepEqual(result.profile,{firstName:'First',lastName:'Last'});
+});
+
+test('shared names survive linking, mobile edits and subsequent Google defaults', async () => {
+  const {service} = fixture();
+  await service.profile('google',{firstName:'Google',lastName:'Name'},true);
+  await service.connect('google','mobile',1000);
+  assert.deepEqual((await service.resolve('mobile')).profile,{firstName:'Google',lastName:'Name'});
+  await service.profile('mobile',{firstName:'Preferred',lastName:''});
+  await service.profile('google',{firstName:'Google',lastName:'Name'},true);
+  assert.deepEqual((await service.resolve('google')).profile,{firstName:'Preferred',lastName:''});
+  assert.equal((await service.resolve('unrelated')).profile,undefined);
+});
+
+test('mobile-first linking inherits Google names but preserves source edits', async () => {
+  const {service} = fixture();
+  await service.profile('mobile',{firstName:''});
+  await service.profile('google',{firstName:'Google',lastName:'Name'},true);
+  await service.connect('mobile','google',1000);
+  assert.deepEqual((await service.resolve('mobile')).profile,{firstName:'',lastName:'Name'});
+  await assert.rejects(service.profile('mobile',{accountId:'other'}),{status:400});
+  await assert.rejects(service.profile('mobile',{firstName:'a'.repeat(101)}),{status:400});
+});
+
 test('in-session connection preserves the source account and requires fresh secondary proof',async () => {
   const {service} = fixture();
   const original = await service.resolve('google');

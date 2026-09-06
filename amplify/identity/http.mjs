@@ -18,6 +18,8 @@ export function createIdentityHandler(service, verify){
       // Pool replacement must never reuse an identity from a different issuer.
       const subject = `${payload.iss}#${payload.sub}`;
       if(body.action === 'resolve') return response(200, await service.resolve(subject));
+      // Names are editable display data, never proof of identity or authorization.
+      if(body.action === 'saveProfile' || body.action === 'seedProfile') return response(200, await service.profile(subject, body.profile, body.action === 'seedProfile'));
       if(body.action === 'start') return response(200, await service.start(subject));
       if(body.action === 'complete') return response(200, await service.complete(subject, payload.auth_time, body.ticket));
       if(body.action === 'connect'){

@@ -109,6 +109,9 @@ Open `http://localhost:8000/`. Serve `dist/`, not the source root: the auth entr
 
 ## Data and consent behavior
 
+- First and last names now persist in the canonical DynamoDB account record. `seedProfile` supplies Google defaults only for missing fields, while `saveProfile` stores explicit edits (including empty names). Both derive the account exclusively from the verified access token and resolve aliases; names are editable display data, never identity proof. Conditional writes coordinate with linking, which keeps source names and fills missing fields from the target. Concurrent saves to the same field use the last successful write.
+- The **Save name** button stores planner name edits for either sign-in method. Existing users must sign in with Google once after this deployment to populate the shared defaults, or enter and save their names through mobile. No user-pool reset is required. These name persistence notes supersede the earlier session-only name statements; other planner values and DOB/country remain temporary.
+
 - Cognito keeps its managed authentication account (Google identity, name/email and tokens), as required for managed sign-in. No planner details, birthday or country are written to Cognito or DynamoDB by the app.
 - Cognito tokens use tab session storage. Planner drafts also use tab session storage, keyed by the signed-in Cognito subject, and the current draft is removed on sign-out. Theme preference remains in local storage. Historical anonymous planner data is neither loaded into authenticated sessions nor deleted.
 - Google birthday/country access is separate from authentication. Declining either permission leaves the planner usable. Missing fields and partial birthdays (no year) are shown explicitly. Country comes from the Google profile address, never from language, IP address or guessed locale. Google may expose no address at all.

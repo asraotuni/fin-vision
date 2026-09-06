@@ -58,7 +58,7 @@ test('mobile OTP normalizes an Indian number and signs the user in after code ve
   await expect(page.locator('#plannerWorkspace')).toBeVisible();
   await expect(page.locator('#accountMethod')).toHaveText('Mobile number + OTP');
   expect(await page.evaluate(() => window.testConfirmSignInRequest)).toEqual({challengeResponse:'12345678'});
-  await expect(page.locator('#accountName')).toHaveText('+919876543210');
+  await expect(page.locator('#accountName')).toHaveText('Not provided');
   await expect(page.locator('#googleProfileDetails')).toBeHidden();
 });
 
@@ -205,6 +205,36 @@ test('mobile addition can be skipped and resumed without clearing the planner', 
   await page.locator('#showMobileBtn').click();
   await expect(page.locator('#connectMobileForm')).toBeVisible();
   await expect(page.locator('#firstName')).toHaveValue('Still here');
+});
+
+test('saved Google name loads after sign-out and mobile login, including an intentionally empty surname', async ({page}) => {
+  await setup(page);
+  let profile;
+  await page.route('**/account', route => {
+    const body = route.request().postDataJSON();
+    if(body.action === 'seedProfile') profile = {...body.profile,...profile};
+    if(body.action === 'saveProfile') profile = {...body.profile};
+    return route.fulfill({json:{accountId:'shared-account',linkedIdentityCount:2,profile}});
+  });
+  await page.evaluate(() => {
+    window.testAuthPayload={sub:'user-a',given_name:'Google',family_name:'Name',identities:[{providerName:'Google',userId:'google-a'}]};
+    window.emitTestAuth('signedIn');
+  });
+  await expect(page.locator('#firstName')).toHaveValue('Google');
+  await page.locator('#firstName').fill('Preferred');
+  await page.locator('#lastName').fill('');
+  await page.locator('#saveAccountNameBtn').click();
+  await expect(page.locator('#nameSaveStatus')).toContainText('Name saved');
+  await page.locator('#signOutBtn').click();
+  await page.reload();
+  await page.locator('#mobileOtpStartBtn').click();
+  await page.locator('#mobileNumber').fill('9876543210');
+  await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
+  await page.locator('#otpCode').fill('12345678');
+  await page.locator('#verifyOtpForm').getByRole('button',{name:'Verify OTP'}).click();
+  await expect(page.locator('#firstName')).toHaveValue('Preferred');
+  await expect(page.locator('#lastName')).toHaveValue('');
+  await expect(page.locator('#accountName')).toHaveText('Preferred');
 });
 
 test('Google fills blank names from an older draft without replacing an existing name', async ({page}) => {

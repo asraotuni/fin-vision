@@ -2,6 +2,13 @@
 
 Last updated: 2026-09-06
 
+## Shared names across sign-in methods (local implementation)
+
+- User confirmed deployment #20 (`7c8ed10`) succeeded, eight-digit mobile login works, and Google now returns birthday day/month but no year or usable country. Mobile login then exposed the lack of shared profile persistence.
+- Implemented canonical account first/last name storage in DynamoDB. Google defaults initialize missing fields; Save name persists user edits including empty names. Both APIs authorize solely from the verified access-token subject, follow account aliases, validate names, and use conditional account versions alongside linking. Linking keeps source profile choices and fills missing fields from the target. Phone numbers no longer appear as names.
+- Existing users need one Google sign-in after deployment to seed their shared names, or can save names from mobile. No reset required. Other planner values, birthday and country remain temporary. Changes are local, not committed/deployed.
+- Validation: 15 headless browser tests pass, including Google name editing, sign-out and subsequent mobile login with the saved names. Backend tests cover profile validation, defaults, linking, account isolation and concurrent writes.
+
 ## Live auth follow-up (2026-09-06)
 
 - Remaining People API failure confirmed from the user's response: HTTP 403 `PERMISSION_DENIED`, explicitly requiring `[profile]` for `people/me`. Fixed the separate browser consent scope to include `profile` alongside `openid`, birthday and address; Cognito's initial Google sign-in scopes do not carry into this separate token with `include_granted_scopes:false`. Added a browser regression assertion for the full requested scopes. Live retesting requires deployment and a new sharing consent request.

@@ -37,7 +37,21 @@ export function createIdentityService(store, now = () => Math.floor(Date.now() /
   const service = {
     async resolve(subject){
       const account = await accountFor(subject);
-      return {accountId:account.accountId, linkedIdentityCount:account.subjects.length};
+      return {accountId:account.accountId, linkedIdentityCount:account.subjects.length, ...(account.profile ? {profile:account.profile} : {})};
+    },
+    async profile(subject, values, defaultsOnly = false){
+      if(!values || typeof values !== 'object' || Array.isArray(values) || Object.keys(values).some(key => !['firstName','lastName'].includes(key))) return fail(400, 'Invalid name fields.');
+      const names = {};
+      for(const [key,value] of Object.entries(values)){
+        if(typeof value !== 'string' || value.length > 100 || /[\u0000-\u001f\u007f]/.test(value)) return fail(400, 'Names must be text of at most 100 characters.');
+        if(!defaultsOnly || value.trim()) names[key] = value.trim();
+      }
+      for(let attempt = 0; attempt < 5; attempt++){
+        const account = await accountFor(subject);
+        const profile = defaultsOnly ? {...names,...account.profile} : {...account.profile,...names};
+        if(await store.commit([{put:{...account,profile,version:account.version+1},version:account.version}])) return service.resolve(subject);
+      }
+      return fail(409, 'Account changed. Please save your name again.');
     },
     async start(subject, startedAt = now()){
       const account = await accountFor(subject);
@@ -69,7 +83,9 @@ export function createIdentityService(store, now = () => Math.floor(Date.now() /
         }
         const subjects = [...new Set([...source.subjects, ...target.subjects])];
         if(subjects.length > 10) return fail(409, 'An account can have at most 10 linked identities.');
-        const winner = {...source, version:source.version + 1, subjects};
+        // Keep the current account's choices, including intentional empty names.
+        const profile = {...target.profile,...source.profile};
+        const winner = {...source, version:source.version + 1, subjects, ...(Object.keys(profile).length ? {profile} : {})};
         // Both roots must still be roots at these versions, preventing cycles and
         // lost links when requests race. The ticket is consumed in the same write.
         if(await store.commit([
