@@ -63,3 +63,10 @@ test('Google API errors are recoverable and do not expose the token', async () =
     ok:url.includes('userinfo'), json:async()=>({sub:'expected'})
   })), /could not be retrieved/);
 });
+
+test('disabled People API reports a configuration issue without exposing provider error data', async () => {
+  await assert.rejects(readGoogleProfile('private-token', BIRTHDAY_SCOPE, 'expected', async url => ({
+    ok:url.includes('userinfo'), json:async()=>url.includes('userinfo') ? {sub:'expected'} :
+      {error:{message:'private provider details',details:[{reason:'SERVICE_DISABLED'}]}}
+  })), /enable the Google People API/);
+});

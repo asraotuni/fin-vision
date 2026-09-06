@@ -52,10 +52,12 @@ test('mobile OTP normalizes an Indian number and signs the user in after code ve
   await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
   await expect.poll(()=>page.evaluate(()=>window.testMobileSignInRequest)).toEqual({username:'+919876543210',options:{authFlowType:'USER_AUTH',preferredChallenge:'SMS_OTP'}});
   await expect(page.locator('#verifyOtpForm')).toBeVisible();
-  await page.locator('#otpCode').fill('123456');
+  await page.locator('#otpCode').fill('12345678');
+  await expect(page.locator('#otpCode')).toHaveValue('12345678');
   await page.locator('#verifyOtpForm').getByRole('button',{name:'Verify OTP'}).click();
   await expect(page.locator('#plannerWorkspace')).toBeVisible();
   await expect(page.locator('#accountMethod')).toHaveText('Mobile number + OTP');
+  expect(await page.evaluate(() => window.testConfirmSignInRequest)).toEqual({challengeResponse:'12345678'});
   await expect(page.locator('#accountName')).toHaveText('+919876543210');
   await expect(page.locator('#googleProfileDetails')).toBeHidden();
 });
@@ -78,6 +80,10 @@ test('signed-in planner isolates old drafts and sign-out hides and clears the cu
 
 test('optional consent supports missing details and never persists Google profile data', async ({page}) => {
   await setup(page,true);
+  await expect(page.locator('#shareGoogleProfileBtn')).toBeEnabled();
+  expect(await page.evaluate(() => window.testConsent.scope.split(' '))).toEqual([
+    'openid','profile','https://www.googleapis.com/auth/user.birthday.read','https://www.googleapis.com/auth/user.addresses.read'
+  ]);
   await page.route('https://openidconnect.googleapis.com/v1/userinfo', route=>route.fulfill({json:{sub:'google-a'}}));
   await page.route('https://people.googleapis.com/**', route=>route.fulfill({json:{birthdays:[{date:{year:1987,month:4,day:12}}]}}));
   await page.locator('#shareGoogleProfileBtn').click();
@@ -199,6 +205,17 @@ test('mobile addition can be skipped and resumed without clearing the planner', 
   await page.locator('#showMobileBtn').click();
   await expect(page.locator('#connectMobileForm')).toBeVisible();
   await expect(page.locator('#firstName')).toHaveValue('Still here');
+});
+
+test('Google fills blank names from an older draft without replacing an existing name', async ({page}) => {
+  await setup(page);
+  await page.evaluate(() => {
+    sessionStorage.setItem('hiramyatech-session-plan:account-a',JSON.stringify({fields:{firstName:'',lastName:'Preferred'},cashFlowBreakdownVersion:3}));
+    window.testAuthPayload={sub:'user-a',given_name:'First',family_name:'Last',identities:[{providerName:'Google',userId:'google-a'}]};
+    window.emitTestAuth('signedIn');
+  });
+  await expect(page.locator('#firstName')).toHaveValue('First');
+  await expect(page.locator('#lastName')).toHaveValue('Preferred');
 });
 
 test('incorrect mobile verification keeps the Google session and draft intact', async ({page}) => {

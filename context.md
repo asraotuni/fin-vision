@@ -2,6 +2,15 @@
 
 Last updated: 2026-09-06
 
+## Live auth follow-up (2026-09-06)
+
+- Remaining People API failure confirmed from the user's response: HTTP 403 `PERMISSION_DENIED`, explicitly requiring `[profile]` for `people/me`. Fixed the separate browser consent scope to include `profile` alongside `openid`, birthday and address; Cognito's initial Google sign-in scopes do not carry into this separate token with `include_granted_scopes:false`. Added a browser regression assertion for the full requested scopes. Live retesting requires deployment and a new sharing consent request.
+
+- User confirmed deployment of `72be5ad`, verified their mobile destination in the Mumbai SNS sandbox, and successfully connected mobile to Google. SMS was initially blocked by sandbox mode with no verified destinations.
+- Pending local fixes: allow six- and eight-digit SMS codes in both login and connection forms (live returning-user authentication sent eight digits); track explicit profile edits separately from automatic draft saves so saved blank names can prefill. Older nonempty profile values are preserved; older blank names without edit metadata can prefill. New intentional clearing remains preserved.
+- User enabled Google People API, which was previously disabled, but still reports missing DOB/country. Exact post-consent status or API response remains needed; no confirmed remaining root cause. Local error handling now distinguishes disabled API and insufficient scopes, includes HTTP status for other failures, and shows progress after consent. These changes do not establish a live Google profile fix.
+- Unit suite and 14 headless browser tests passed with eight-digit login and profile migration coverage. Changes remain uncommitted and undeployed.
+
 ## Simpler sign-in connections and Google prefills (2026-09-06)
 
 - User confirmed real Google sign-in works after deployment #18 and that the Google callback domain did not change. No Google OAuth console update was needed.

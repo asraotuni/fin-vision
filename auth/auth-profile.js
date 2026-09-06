@@ -40,7 +40,7 @@ export function profileDetails(person){
 export async function readGoogleProfile(accessToken, scopes, expectedSubject, fetcher = fetch){
   const headers = {Authorization:`Bearer ${accessToken}`};
   const identityResponse = await fetcher('https://openidconnect.googleapis.com/v1/userinfo', {headers, cache:'no-store'});
-  if(!identityResponse.ok) throw new Error('Could not verify the Google account. Try sharing again.');
+  if(!identityResponse.ok) throw new Error(`Could not verify the Google account (HTTP ${identityResponse.status}). Try sharing again.`);
   const identity = await identityResponse.json();
   if(!expectedSubject || identity.sub !== expectedSubject){
     throw new Error('Choose the same Google account that you used to sign in.');
@@ -51,7 +51,13 @@ export async function readGoogleProfile(accessToken, scopes, expectedSubject, fe
   if(granted.has(ADDRESS_SCOPE)) fields.push('addresses');
   if(!fields.length) return {birthday:'Permission not granted', country:'Permission not granted'};
   const response = await fetcher(`https://people.googleapis.com/v1/people/me?personFields=${fields.join(',')}&sources=READ_SOURCE_TYPE_PROFILE`, {headers, cache:'no-store'});
-  if(!response.ok) throw new Error('Google profile details could not be retrieved. You can continue planning and try sharing again later.');
+  if(!response.ok){
+    const failure = await response.json().catch(() => ({}));
+    const reasons = (failure.error?.details || []).map(detail => detail.reason);
+    if(reasons.includes('SERVICE_DISABLED')) throw new Error('Google profile sharing is not configured yet. The app owner needs to enable the Google People API for this sign-in project.');
+    if(reasons.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT')) throw new Error('Google did not grant access to these profile details. Try sharing again and select the birthday and address permissions.');
+    throw new Error(`Google profile details could not be retrieved (HTTP ${response.status}). You can continue planning and try sharing again later.`);
+  }
   const details = profileDetails(await response.json());
   if(!granted.has(BIRTHDAY_SCOPE)) details.birthday = 'Permission not granted';
   if(!granted.has(ADDRESS_SCOPE)) details.country = 'Permission not granted';

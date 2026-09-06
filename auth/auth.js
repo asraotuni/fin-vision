@@ -168,13 +168,15 @@ async function prepareProfileConsent(){
     if(!signedIn || generation !== sessionGeneration) return;
     tokenClient = window.google.accounts.oauth2.initTokenClient({
       client_id:config.googleClientId,
-      scope:`openid ${BIRTHDAY_SCOPE} ${ADDRESS_SCOPE}`,
+      // This token is separate from Cognito sign-in: people/me also needs profile.
+      scope:`openid profile ${BIRTHDAY_SCOPE} ${ADDRESS_SCOPE}`,
       include_granted_scopes:false,
       login_hint:currentSubject,
       callback:async response => {
         if(!signedIn || generation !== sessionGeneration) return;
         try {
           if(response.error || !response.access_token) throw new Error('Details were not shared. You can continue planning or try again.');
+          byId('profileStatus').textContent = 'Reading the details shared by Google…';
           const details = await readGoogleProfile(response.access_token, response.scope || '', currentSubject);
           if(!signedIn || generation !== sessionGeneration) return;
           byId('accountDob').textContent = details.birthday;
@@ -322,9 +324,9 @@ byId('mobileOtpForm').addEventListener('submit', event => {
 byId('verifyOtpForm').addEventListener('submit', async event => {
   event.preventDefault();
   if(otpBusy) return;
-  const code = byId('otpCode').value.replace(/\D/g, '');
-  if(code.length !== 6){
-    byId('authStatus').textContent = 'Enter the 6-digit OTP from your SMS.';
+  const code = byId('otpCode').value.trim();
+  if(!/^(?:[0-9]{6}|[0-9]{8})$/.test(code)){
+    byId('authStatus').textContent = 'Enter the complete 6- or 8-digit code from your SMS.';
     return;
   }
   const submitButton = byId('verifyOtpForm').querySelector('button[type="submit"]');
@@ -441,7 +443,7 @@ byId('connectMobileForm').addEventListener('submit', event => {
 byId('connectMobileCodeForm').addEventListener('submit', event => {
   event.preventDefault();
   const code = byId('connectMobileCode').value.trim();
-  if(!/^[0-9]{6}$/.test(code)){ byId('accountLinkStatus').textContent = 'Enter the 6-digit verification code.'; return; }
+  if(!/^(?:[0-9]{6}|[0-9]{8})$/.test(code)){ byId('accountLinkStatus').textContent = 'Enter the complete 6- or 8-digit code from your SMS.'; return; }
   connectionTask(async generation => {
     if(secondaryToken) return finishConnection(secondaryToken,generation);
     if(!mobileConnection) throw new Error('Request a new verification code.');

@@ -60,7 +60,7 @@
         </form>
         <form id="verifyOtpForm" class="otp-form" hidden>
           <label for="otpCode">Enter the OTP sent to <strong id="otpDestination"></strong></label>
-          <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6-digit OTP" maxlength="6" required>
+          <input id="otpCode" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from your SMS" maxlength="8" required>
           <div class="otp-actions"><button type="submit" class="add-member">Verify OTP</button><button type="button" class="text-button" id="resendOtpBtn">Resend OTP</button><button type="button" class="text-button" id="changeMobileBtn">Change number</button></div>
         </form>
         <p class="auth-note">Mobile sign-in sends a one-time code to your phone. Google sign-in shares your name and email for your account. Your plan is kept only in this tab until you sign out; it is not saved to a server.</p>
@@ -87,7 +87,7 @@
           </form>
           <form id="connectMobileCodeForm" class="otp-form" hidden>
             <label for="connectMobileCode">Code sent to <strong id="connectMobileDestination"></strong></label>
-            <input id="connectMobileCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+            <input id="connectMobileCode" inputmode="numeric" autocomplete="one-time-code" placeholder="Code from your SMS" maxlength="8" required>
             <p class="auth-note">Verifying connects this mobile sign-in to your current account, including any account already registered with this number.</p>
             <button type="submit" class="add-member">Verify mobile number</button>
             <button type="button" class="text-button" id="resendConnectMobileBtn">Resend code</button>

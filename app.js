@@ -5,7 +5,10 @@ const backBtn = document.querySelector('#backBtn');
 const stepCount = document.querySelector('#stepCount');
 if(!window.finVisionUserId) throw new Error('Sign in before loading the planner.');
 const STORAGE_KEY = `hiramyatech-session-plan:${window.finVisionUserId}`;
-const restoredFieldIds = new Set();
+const editedProfileFields = new Set();
+document.addEventListener('input', event => {
+  if(['firstName','lastName','age'].includes(event.target.id)) editedProfileFields.add(event.target.id);
+}, true);
 const ASSET_RETURNS = {
   'Independent house / villa': 6, 'Flat': 6, 'Plot': 7, 'Agricultural land': 7, 'EPF / PF': 8.25,
   'PPF': 7.1, 'Gold': 8, 'Savings bank account': 3, 'Cash': 0,
@@ -880,6 +883,7 @@ function saveState(){
   });
   const state = {
     fields,
+    editedProfileFields: [...editedProfileFields],
     family: familyMembers(),
     assets: assets(),
     loans: loans(),
@@ -902,8 +906,10 @@ function restoreState(){
   try {
     const state = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
     if(!state) return 0;
+    // Older drafts have no edit metadata: preserve existing values, but allow
+    // Google to fill blank names. New drafts preserve intentional clearing too.
+    for(const id of state.editedProfileFields || ['firstName','lastName','age'].filter(id => state.fields?.[id])) editedProfileFields.add(id);
     Object.entries(state.fields || {}).forEach(([id, savedValue]) => {
-      restoredFieldIds.add(id);
       if(!$(id)) return;
       if($(id).type === 'radio') $(id).checked = savedValue === true || savedValue === 'true';
       else $(id).value = savedValue;
@@ -1124,16 +1130,14 @@ $('resetDataBtn').addEventListener('click', () => {
 });
 
 const restoredStep = restoreState();
-$('age').addEventListener('input', () => restoredFieldIds.add('age'));
 window.finVisionApplyGoogleAge = age => {
-  if(!window.finVisionUserId || restoredFieldIds.has('age') || !Number.isInteger(age) || age < 18 || age > 79) return;
+  if(!window.finVisionUserId || editedProfileFields.has('age') || !Number.isInteger(age) || age < 18 || age > 79) return;
   $('age').value = String(age);
-  restoredFieldIds.add('age');
   updateBasics(); saveState();
 };
 // Saved edits (including deliberately cleared names) take precedence over Google.
 for(const id of ['firstName','lastName']){
-  if(!restoredFieldIds.has(id) && !$(id).value && window.finVisionProfile?.[id]) $(id).value = window.finVisionProfile[id];
+  if(!editedProfileFields.has(id) && !$(id).value && window.finVisionProfile?.[id]) $(id).value = window.finVisionProfile[id];
 }
 if(!assets().some(asset => asset.excludedFromRetirement)){
   addAsset({type:'Independent house / villa', value:'', returnRate:6, excludedFromRetirement:true}, false);
