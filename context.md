@@ -2,6 +2,13 @@
 
 Last updated: 2026-09-06
 
+## Auth deployment reset (2026-09-06)
+
+- Commit `f18d774` (linked accounts and root `auth/` organization) was pushed to both remotes. The user reported the expected Cognito immutable `UsernameAttributes` failure from Amplify app `dh834yyjyqy9k`, `dev` branch, root stack `amplify-dh834yyjyqy9k-dev-branch-13373787dc`.
+- Added an explicit two-stage reset switch to `amplify/backend.ts`. With branch environment variable `FIN_VISION_AUTH_RESET=dh834yyjyqy9k/dev`, a deployment removes Auth and its dependent API but preserves the identity stack/table. The switch must match `AWS_APP_ID` and only works on `dev`. After successful removal, remove the variable and redeploy to create Auth with the new schema. Update the Google Cognito callback after recreation. Do not delete the Amplify app or root stack.
+- Both removal and normal templates pass local synthesis checks, and backend TypeScript passes. The removal check is `npm run check:backend -- --reset-auth`. Each check now uses a fresh generated directory to avoid inspecting stale templates.
+- Actual cloud reset remains pending. User authorization to delete the single Cognito user is already recorded; do not request it again. AWS CLI profile for this app has not been identified, so console deployment steps are documented in `auth/AUTH_SETUP.md`.
+
 ## Linked-account implementation (2026-09-06; supersedes older identity and storage notes)
 
 - Frontend Auth files and setup documentation now live in root-level `auth/`: `auth.js`, `auth-profile.js`, `auth-config.json`, and `AUTH_SETUP.md`. Build output uses `dist/auth/`; HTML, tests and configuration loading use the new paths. Amplify backend definitions remain in `amplify/` because Amplify validates their location.

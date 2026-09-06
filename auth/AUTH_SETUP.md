@@ -23,16 +23,20 @@ The deployed email-only pool cannot accept an in-place change to username attrib
 Before deploying this implementation, use a controlled two-stage Auth recreation for the existing `dev` branch:
 
 1. Confirm the target Amplify app, `dev` branch, and current Auth nested stack in `ap-south-1`. Retain the Google OAuth client and Amplify secrets. Do not run a whole-app or root-stack deletion.
-2. Deploy a temporary backend without Auth and its dependent identity API resources. The identity registry in this change has not been deployed yet. If a registry already exists at execution time, preserve it separately rather than removing its stack blindly. Wait for the CloudFormation update to finish and verify that the old pool was actually deleted, including any retention/deletion-protection settings.
-3. Restore and deploy this complete backend. It creates email/phone username support with both attributes optional, Google federation, SMS OTP, and the identity API. Do not publish only the new frontend against the old backend: it intentionally stays locked without the new identity configuration.
+2. Wait for the failed update to finish rolling back. In Amplify app `dh834yyjyqy9k`, set the environment variable `FIN_VISION_AUTH_RESET` to `dh834yyjyqy9k/dev` for the `dev` branch and redeploy the latest commit containing reset support. This removes Auth and its dependent identity API resources, but keeps the `account-identity` stack and table at the same construct paths. The switch is rejected unless it matches the current `AWS_APP_ID` and the branch is `dev`. Wait for this deployment to finish successfully and verify that the old pool was actually deleted; stop if deletion protection or a retained pool prevented removal. Sign-in stays unavailable during this stage.
+3. Remove `FIN_VISION_AUTH_RESET` and redeploy the same commit. This creates a fresh pool with email/phone username support, both attributes optional, Google federation, SMS OTP, and the identity API. Do not remove the variable until the removal deployment finishes. Do not publish only the new frontend against the old backend: it intentionally stays locked without the new identity configuration.
 4. Update the Google OAuth authorized Cognito origin and `/oauth2/idpresponse` redirect for the new domain. Retrieve fresh `amplify_outputs.json`, including `custom.account_identity_url`, and deploy the built frontend.
 5. Verify real Google return/refresh/sign-out, new mobile registration, returning mobile sign-in, linking in both directions, and subsequent sign-ins resolving to the same application account. SMS sandbox/DLT setup below is still required.
 
 No live resources have been recreated as part of the local implementation. The branded `auth.hiramyatech.com` domain is a separate pending deployment task.
 
+See [AWS instructions for branch environment variables](https://docs.aws.amazon.com/amplify/latest/userguide/setting-env-vars.html). `FIN_VISION_AUTH_RESET` is a deployment control, not a secret; Google client secrets remain in Amplify Secrets.
+
 ## Local validation
 
 Run `npm test`, `npx tsc --noEmit -p amplify/tsconfig.json`, `npm run check:backend`, and `npm run build`. The backend check synthesizes a fictitious branch locally and checks Auth schema, first factors, provider configuration, the retained registry and API route; it does not deploy or fetch secrets. `npm run test:browser` exercises mocked sign-in and linking flows with Playwright and requires permission to bind a local server plus Chromium's Linux libraries.
+
+Run `npm run check:backend -- --reset-auth` to validate the removal-stage template: no Cognito or API Gateway resources, with the identity table still present and retained.
 
 Use npm 10.9.3 for dependency changes and clean-install verification. Its dependency update can still drop four existing nested OpenTelemetry core entries from Amplify's bundled dependencies: restore those exact entries from the previous lockfile if `npm ci` reports them missing, then rerun clean install.
 
