@@ -2,6 +2,16 @@
 
 Last updated: 2026-09-05
 
+## Account identity requirement (2026-09-06)
+
+- The user confirmed that the current Cognito pool has only one user and explicitly approved deleting that user as part of the controlled Auth recreation. This supersedes the pending deletion-confirmation note below; it does not authorize deleting the Amplify application or unrelated resources.
+- Auth completion must include one stable application account identity across Google SSO, mobile OTP, and future email sign-in. Merely enabling independent login methods does not satisfy this requirement. The current frontend uses the Cognito `sub` and has no account-linking implementation.
+- Link additional methods only after verifying ownership of those methods in an authenticated account-linking flow. A Google sign-in alone cannot identify an unrelated phone number as belonging to the same person. Never merge based on a name or an unverified email/phone field.
+- Expected flow: sign in with either available method, connect and verify the other method, then resolve subsequent sign-ins with either linked method to the same stable account ID. Email sign-in remains future work, but the identity design must accommodate it.
+- Linking must work for Google-first and mobile-first users. Already-existing separate accounts require a deliberate flow proving control of both accounts and handling data conflicts; do not silently overwrite or reassign an existing account.
+- Future planner/profile storage must use the stable account identity rather than a phone number, email address, or login-provider label. Account-linking operations and identity resolution must be enforced by the backend, not browser storage.
+- These are recorded requirements, not implemented or deployed functionality.
+
 ## Authentication iteration (2026-09-05; supersedes older local-use and persistence notes below)
 
 - Mobile SMS OTP was implemented and committed as `814913e` (`add mobile OTP sign-in`), then pushed to both `origin/dev` and `github/dev`. It adds `loginWith.phone.otpLogin`, an Amplify-managed Cognito SNS SMS publishing role, Cognito native `USER_AUTH`, an Indian-phone (`+91`) OTP form, code verification/resend/change-number actions, and conditional account details for Google versus mobile users. Email OTP remains disabled. Build, JavaScript check, Amplify TypeScript check, unit tests, and diff checks passed. Browser tests are blocked on this WSL image by missing `libnspr4.so`.
