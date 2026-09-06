@@ -64,7 +64,9 @@ test('guest landing opens About you, supports every tab, and keeps a separate dr
 
 test('mobile OTP normalizes an Indian number and signs the user in after code verification', async ({page}) => {
   await setup(page);
+  await page.locator('#closeSignInBtn').click();
   await page.locator('#firstName').fill('Separate guest');
+  await page.locator('#openSignInBtn').click();
   await page.locator('#mobileOtpStartBtn').click();
   await page.locator('#mobileNumber').fill('98765 43210');
   await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
@@ -82,6 +84,23 @@ test('mobile OTP normalizes an Indian number and signs the user in after code ve
   await page.locator('#signOutBtn').click();
   await expect(page.locator('#accountPanel')).toBeHidden();
   await expect(page.locator('#firstName')).toHaveValue('Separate guest');
+});
+
+test('sign-in is a modal with a bottom guest action and keyboard dismissal', async ({page}) => {
+  await setup(page);
+  await expect(page.getByRole('dialog',{name:'Sign in to your planner'})).toBeVisible();
+  expect(await page.locator('#loginPanel').evaluate(el => el.matches(':modal'))).toBe(true);
+  const google = await page.locator('#googleSignInBtn').boundingBox();
+  const guest = await page.locator('#closeSignInBtn').boundingBox();
+  expect(guest.y).toBeGreaterThan(google.y + google.height);
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#loginPanel')).toBeHidden();
+  await expect(page.locator('#openSignInBtn')).toBeFocused();
+  await page.setViewportSize({width:375,height:812});
+  await page.locator('#openSignInBtn').click();
+  expect(await page.locator('#loginPanel').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.locator('#dismissSignInBtn').click();
+  await expect(page.locator('#loginPanel')).toBeHidden();
 });
 
 test('signed-in planner isolates old drafts and sign-out hides and clears the current draft', async ({page}) => {

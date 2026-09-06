@@ -2,6 +2,11 @@
 
 Last updated: 2026-09-06
 
+## Sign-in popup UX (local)
+
+- User confirmed optional guest access works and requested a popup instead of an inline login panel. Sign in now opens a centered native modal dialog with a dimmed backdrop, scrollable mobile layout, close button, Escape dismissal and native focus containment/return. Continue without signing in is separated at the bottom. The planner stays in place behind the popup.
+- Build, syntax/whitespace checks and all 17 headless browser tests passed, including modal semantics, bottom guest action, Escape/focus restoration and narrow viewport overflow. Changes remain uncommitted and undeployed.
+
 ## Optional sign-in and guest landing (local)
 
 - User confirmed shared names now work on mobile login, then requested removing mandatory sign-in. New visitors now land on About you, with Sign in in the top-right header. The login panel opens only on demand and has Continue without signing in.

@@ -104,10 +104,19 @@ async function loadPlanner(){
 
 byId('openSignInBtn').addEventListener('click', () => {
   byId('loginPanel').hidden = false;
-  byId('loginPanel').scrollIntoView({behavior:'smooth'});
+  byId('loginPanel').showModal();
+  document.body.classList.add('sign-in-open');
 });
-byId('closeSignInBtn').addEventListener('click', () => {
+function closeSignIn(){
+  byId('loginPanel').close();
   byId('loginPanel').hidden = true;
+  document.body.classList.remove('sign-in-open');
+}
+byId('closeSignInBtn').addEventListener('click', closeSignIn);
+byId('dismissSignInBtn').addEventListener('click', closeSignIn);
+byId('loginPanel').addEventListener('cancel', event => {
+  event.preventDefault();
+  closeSignIn();
 });
 
 async function synchronize(){
@@ -146,7 +155,7 @@ async function synchronize(){
   updateConnectedMethods(identity);
   byId('accountEmail').textContent = payload.email ? `Google email: ${payload.email}` : '';
   byId('accountName').textContent = identity.profile ? [identity.profile.firstName,identity.profile.lastName].filter(Boolean).join(' ') || 'Not provided' : payload.name || [payload.given_name,payload.family_name].filter(Boolean).join(' ') || 'Not provided';
-  byId('loginPanel').hidden = true;
+  closeSignIn();
   byId('retryAccountBtn').hidden = true;
   byId('accountPanel').hidden = false;
   byId('plannerWorkspace').hidden = false;
