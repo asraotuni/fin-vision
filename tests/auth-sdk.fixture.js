@@ -6,7 +6,7 @@ export const sessionStorage = {};
 export const cognitoUserPoolsTokenProvider = {setKeyValueStorage:() => {}};
 window.emitTestAuth = event => listeners.forEach(listener => listener({payload:{event}}));
 export async function fetchAuthSession(){
-  return window.testAuthPayload ? {tokens:{idToken:{payload:window.testAuthPayload}}} : {};
+  return window.testAuthPayload ? {tokens:{idToken:{payload:window.testAuthPayload}, accessToken:{toString:() => window.testAuthPayload.sub}}} : {};
 }
 export async function signInWithRedirect(options){ window.testSignInRequest = options; }
 export async function signIn(options){
@@ -26,3 +26,13 @@ export async function signOut(){
   window.testAuthPayload = null;
   window.emitTestAuth('signedOut');
 }
+export async function signUp(options){
+  window.testSignUpRequest = options;
+  return {nextStep:{signUpStep:'CONFIRM_SIGN_UP'}};
+}
+export async function confirmSignUp(options){
+  window.testConfirmSignUpRequest = options;
+  return {nextStep:{signUpStep:'COMPLETE_AUTO_SIGN_IN'}};
+}
+export async function resendSignUpCode(options){ window.testResendSignUpRequest = options; }
+export async function autoSignIn(){ return confirmSignIn({}); }

@@ -8,6 +8,7 @@ const publicFiles = ['index.html', 'styles.css', 'app.js', 'theme.js'];
 
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });
+await mkdir(new URL('auth/', outputDirectory), { recursive: true });
 
 for (const file of publicFiles) {
   await copyFile(new URL(file, projectRoot), new URL(file, outputDirectory));
@@ -21,8 +22,8 @@ if (existsSync(amplifyOutputs)) {
 }
 
 await build({
-  entryPoints:[new URL('../auth.js', import.meta.url).pathname],
-  outfile:new URL('auth.js', outputDirectory).pathname,
+  entryPoints:[new URL('../auth/auth.js', import.meta.url).pathname],
+  outfile:new URL('auth/auth.js', outputDirectory).pathname,
   bundle:true,
   format:'esm',
   platform:'browser',
@@ -31,6 +32,6 @@ await build({
   sourcemap:false,
 });
 // Public OAuth client ID only. Secrets must never enter frontend build output.
-const authConfig = JSON.parse(await readFile(new URL('auth-config.json', projectRoot), 'utf8'));
-await writeFile(new URL('auth-config.json', outputDirectory), JSON.stringify({googleClientId:process.env.GOOGLE_CLIENT_ID || authConfig.googleClientId}));
+const authConfig = JSON.parse(await readFile(new URL('auth/auth-config.json', projectRoot), 'utf8'));
+await writeFile(new URL('auth/auth-config.json', outputDirectory), JSON.stringify({googleClientId:process.env.GOOGLE_CLIENT_ID || authConfig.googleClientId}));
 console.log(`Built ${builtFileCount + 2} frontend files in dist/.`);

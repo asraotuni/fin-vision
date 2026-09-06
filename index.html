@@ -46,6 +46,7 @@
 
       <section class="auth-card" id="loginPanel" aria-labelledby="loginHeading">
         <h2 id="loginHeading">Sign in to your planner</h2>
+        <p id="linkInstructions" hidden>Sign in with the other method, then confirm that both sign-ins belong to you. <button type="button" class="text-button" id="cancelLinkBtn">Cancel linking</button></p>
         <p>Use your mobile number or Google account to start your plan.</p>
         <button type="button" class="google-signin" id="googleSignInBtn" disabled>Continue with Google</button>
         <div class="auth-alternatives">
@@ -56,6 +57,7 @@
           <label for="mobileNumber">Mobile number <small>Indian numbers are sent as +91.</small></label>
           <input id="mobileNumber" type="tel" inputmode="numeric" autocomplete="tel" placeholder="98765 43210" maxlength="14" required>
           <button type="submit" class="add-member">Send OTP</button>
+          <button type="button" class="text-button" id="mobileSignupBtn">First time with this number? Create mobile account</button>
         </form>
         <form id="verifyOtpForm" class="otp-form" hidden>
           <label for="otpCode">Enter the OTP sent to <strong id="otpDestination"></strong></label>
@@ -64,7 +66,17 @@
         </form>
         <p class="auth-note">Mobile sign-in sends a one-time code to your phone. Google sign-in shares your name and email for your account. Your plan is kept only in this tab until you sign out; it is not saved to a server.</p>
         <p id="authStatus" role="status">Loading sign-in. If this message remains, reload the page.</p>
+        <button type="button" class="text-button" id="retryAccountBtn" hidden>Retry account connection</button>
         <noscript>Enable JavaScript to sign in and use the planner.</noscript>
+      </section>
+
+      <section class="auth-card" id="linkConfirmPanel" hidden aria-labelledby="linkConfirmHeading">
+        <h2 id="linkConfirmHeading">Link these sign-ins?</h2>
+        <p id="linkConfirmDescription"></p>
+        <p>Confirm only if both sign-ins belong to you. Either sign-in will have access to the same account. If you already have two accounts, this joins their identities. Planner drafts are not merged or saved to a server.</p>
+        <button type="button" class="add-member" id="confirmLinkBtn">Confirm account link</button>
+        <button type="button" class="text-button" id="rejectLinkBtn">Cancel and sign out</button>
+        <p id="linkStatus" role="status"></p>
       </section>
 
       <section class="auth-profile" id="accountPanel" aria-labelledby="accountHeading" hidden>
@@ -73,6 +85,10 @@
         <div id="googleProfileDetails"><p class="auth-note">With your consent, Google can share your birthday and address information so we can display your date of birth and region/country. These details stay in memory and are cleared on reload or sign-out. You can continue without sharing them.</p>
         <button type="button" class="add-member" id="shareGoogleProfileBtn" disabled>Share DOB and country from Google</button></div>
         <p id="profileStatus" role="status"></p>
+        <p id="accountIdentitySummary"></p>
+        <p class="auth-note">Link Google or a mobile number to use either for this account. You will sign out to verify the other method; your current planner draft will be cleared. Email sign-in is coming later.</p>
+        <button type="button" class="add-member" id="startLinkBtn">Link another sign-in method</button>
+        <p id="accountLinkStatus" role="status"></p>
       </section>
 
       <div id="plannerWorkspace" hidden>
@@ -429,6 +445,6 @@
     <footer><span>Made with care for your future.</span><span>Educational estimate · Not financial advice</span></footer>
   </div>
   <script src="theme.js"></script>
-  <script type="module" src="auth.js"></script>
+  <script type="module" src="auth/auth.js"></script>
 </body>
 </html>

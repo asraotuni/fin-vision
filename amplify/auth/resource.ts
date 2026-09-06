@@ -30,6 +30,12 @@ export const auth = defineAuth({
       ],
     },
   },
+  // Each login method must work independently. Requiring both attributes would
+  // block phone-only sign-up and Google accounts that do not supply a phone.
+  userAttributes: {
+    email: {required:false, mutable:true},
+    phoneNumber: {required:false, mutable:true},
+  },
   // Lets Amplify create Cognito's SNS publishing role for SMS OTP delivery.
   senders: {
     sms: {},

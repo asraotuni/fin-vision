@@ -1,16 +1,27 @@
 # Fin Vision project context
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
+
+## Linked-account implementation (2026-09-06; supersedes older identity and storage notes)
+
+- Frontend Auth files and setup documentation now live in root-level `auth/`: `auth.js`, `auth-profile.js`, `auth-config.json`, and `AUTH_SETUP.md`. Build output uses `dist/auth/`; HTML, tests and configuration loading use the new paths. Amplify backend definitions remain in `amplify/` because Amplify validates their location.
+- Implemented locally, not yet deployed: Google and mobile Cognito profiles resolve through a private DynamoDB/Lambda HTTP API to a shared application account ID after explicit verified linking. Email authentication remains later work; the identity registry supports additional Cognito subjects without using email or phone as the account key.
+- `amplify/identity/` contains the identity service, DynamoDB adapter, access-token verification and HTTP handling. Linking requires an authenticated start, a random single-use ten-minute ticket, fresh authentication with the second identity, and explicit frontend confirmation. Atomic conditional transactions preserve links under concurrency. Existing account IDs become resolvable aliases when two established accounts are linked. No planner/profile data is stored remotely.
+- `auth/auth.js` now waits for backend identity resolution before unlocking the planner and keys session drafts by application account ID. The account UI exposes linking and explains that starting it signs out and clears the draft. No drafts are merged. Future data APIs must resolve account identity server-side, including aliases; raw Cognito `sub` authorization would split linked users again.
+- Added first-time mobile registration, confirmation, resend and auto-sign-in. Email and phone attributes are both optional in the new pool schema so Google and phone-only registration can work independently.
+- Required outputs now include `custom.account_identity_url`. The existing pool still needs controlled recreation before deployment; approval to delete its single user was already given. No live deletion or deployment has been performed. `auth/AUTH_SETUP.md` documents the transition and validation steps.
+- Validation complete locally: all 18 unit tests, frontend build, TypeScript, local branch CloudFormation synthesis and npm 10.9.3 clean install pass. After the user installed Chromium's Linux dependencies, all 10 mocked browser tests passed on 2026-09-06 using `npm run test:browser -- --workers=1` (headless, 6.4 seconds). This supersedes the historical browser-library blockers below. Real Google/SMS and deployed identity API verification remain pending.
+- npm dependency updates dropped the same four nested OpenTelemetry entries despite npm 10.9.3; restored their exact previously committed entries before clean-install validation.
 
 ## Account identity requirement (2026-09-06)
 
 - The user confirmed that the current Cognito pool has only one user and explicitly approved deleting that user as part of the controlled Auth recreation. This supersedes the pending deletion-confirmation note below; it does not authorize deleting the Amplify application or unrelated resources.
-- Auth completion must include one stable application account identity across Google SSO, mobile OTP, and future email sign-in. Merely enabling independent login methods does not satisfy this requirement. The current frontend uses the Cognito `sub` and has no account-linking implementation.
+- Auth completion must include one stable application account identity across Google SSO, mobile OTP, and future email sign-in. Merely enabling independent login methods does not satisfy this requirement. At the time this requirement was recorded, the frontend used the Cognito `sub` and had no account-linking implementation.
 - Link additional methods only after verifying ownership of those methods in an authenticated account-linking flow. A Google sign-in alone cannot identify an unrelated phone number as belonging to the same person. Never merge based on a name or an unverified email/phone field.
 - Expected flow: sign in with either available method, connect and verify the other method, then resolve subsequent sign-ins with either linked method to the same stable account ID. Email sign-in remains future work, but the identity design must accommodate it.
 - Linking must work for Google-first and mobile-first users. Already-existing separate accounts require a deliberate flow proving control of both accounts and handling data conflicts; do not silently overwrite or reassign an existing account.
 - Future planner/profile storage must use the stable account identity rather than a phone number, email address, or login-provider label. Account-linking operations and identity resolution must be enforced by the backend, not browser storage.
-- These are recorded requirements, not implemented or deployed functionality.
+- See the implementation status above; deployment and live verification remain pending.
 
 ## Authentication iteration (2026-09-05; supersedes older local-use and persistence notes below)
 
@@ -22,10 +33,10 @@ Last updated: 2026-09-05
 - Google SSO and passwordless mobile OTP are enabled in Cognito. `amplify/backend.ts` permits both Cognito native authentication and Google, enables `ALLOW_USER_AUTH`, leaves native sign-up available for first-time mobile OTP users, and disables guest identities. The CloudFormation app client still depends on the Google provider.
 - Pending: replace Cognito's generated `*.auth.ap-south-1.amazoncognito.com` sign-in domain with `auth.hiramyatech.com`. This requires an ACM certificate in `us-east-1`, Cognito custom-domain and GoDaddy DNS setup, updating the Google OAuth origin/redirect URI, and overriding the frontend Auth configuration to use the new domain.
 - Google SSO and mobile SMS OTP use Amplify Gen 2 Auth / Cognito in `amplify/auth/resource.ts`, wired through `amplify/backend.ts`. Email OTP remains a disabled placeholder. The app uses a native SMS sender role, so deploy first and configure AWS End User Messaging SMS/SNS sandbox or production delivery. Indian public delivery additionally needs DLT entity/template registration and confirmation of the current AWS sender configuration.
-- `auth.js` gates the planner until a Cognito Google or mobile session exists, displays the sign-in method and the Google name or authenticated mobile number, and exposes sign-out. Google-only DOB/country consent remains hidden for mobile sessions. `theme.js` works before login. The build bundles the auth SDK using esbuild. Serve the built `dist/` directory with `python3 -m http.server 8000 --directory dist` after `npm run build`.
+- `auth/auth.js` gates the planner until a Cognito Google or mobile session exists, displays the sign-in method and the Google name or authenticated mobile number, and exposes sign-out. Google-only DOB/country consent remains hidden for mobile sessions. `theme.js` works before login. The build bundles the auth SDK using esbuild. Serve the built `dist/` directory with `python3 -m http.server 8000 --directory dist` after `npm run build`.
 - Additional DOB and region/country consent uses the Google People API through a separate optional button after login. The Google subject must match the Cognito Google identity. Missing/declined fields and partial birthdays are supported. DOB/country and the People API token are not persisted.
 - No DynamoDB or planner/profile API is added. Cognito necessarily maintains managed authentication account metadata. Planner drafts now use `sessionStorage` under `hiramyatech-session-plan:<Cognito sub>` and are removed on sign-out. Old anonymous local-storage data is untouched and is not imported into signed-in sessions. Theme remains in local storage.
-- Backend secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured in Amplify for Google SSO. The public Google client ID is in `auth-config.json`. The Cognito callback origin and `/oauth2/idpresponse` URL have been added to the Google OAuth client, and the deployed flow has reached Google's account chooser. Verify the full return to the app, session refresh, and sign-out before considering live OAuth complete. `AUTH_SETUP.md` contains the detailed setup and test steps.
+- Backend secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured in Amplify for Google SSO. The public Google client ID is in `auth/auth-config.json`. The Cognito callback origin and `/oauth2/idpresponse` URL have been added to the Google OAuth client, and the deployed flow has reached Google's account chooser. Verify the full return to the app, session refresh, and sign-out before considering live OAuth complete. `auth/AUTH_SETUP.md` contains the detailed setup and test steps.
 - `npm test` checks profile parsing, consent and account binding. `npm run test:browser` contains mocked browser integration tests; Chromium is downloaded but cannot launch on this WSL host until its Linux libraries are installed (`npx playwright install-deps chromium`, requires sudo). Browser tests have not run successfully yet. Frontend build, backend TypeScript and JavaScript checks pass.
 - Recent planner additions: investable-asset pie chart (primary home excluded as legacy), real-estate flags above 30%/50%, MF + Equity flags below 30%/20%, independent EMI emergency funds, and Protection gauges/comments for both insurance types and both emergency funds.
 
@@ -47,7 +58,7 @@ Google SSO is now implemented through Amplify Auth / Cognito. Backend storage, B
 
 ## Current working-tree status
 
-The active branch is `dev`, tracking Bitbucket's `origin/dev`. Commits through `d31b6be` (`order Cognito Google provider before app client`) are present on local `dev`, `origin/dev`, and `github/dev`. The current documentation edits in `context.md` and `AUTH_SETUP.md` are intentional, uncommitted work. Do not reset or overwrite them. Frontend build, Auth unit tests, Amplify backend TypeScript, JavaScript syntax checks, and `git diff --check` pass.
+The active branch is `dev`, tracking Bitbucket's `origin/dev`. Commits through `d31b6be` (`order Cognito Google provider before app client`) are present on local `dev`, `origin/dev`, and `github/dev`. The current documentation edits in `context.md` and `auth/AUTH_SETUP.md` are intentional, uncommitted work. Do not reset or overwrite them. Frontend build, Auth unit tests, Amplify backend TypeScript, JavaScript syntax checks, and `git diff --check` pass.
 
 ## AWS Amplify Gen 2 deployment
 

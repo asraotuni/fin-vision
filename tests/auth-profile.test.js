@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { ADDRESS_SCOPE, BIRTHDAY_SCOPE, googleSubject, profileDetails, readGoogleProfile } from '../auth-profile.js';
+import { ADDRESS_SCOPE, BIRTHDAY_SCOPE, googleSubject, profileDetails, readGoogleProfile } from '../auth/auth-profile.js';
 
 test('Google identity requires provider subject, not an email address', () => {
   assert.equal(googleSubject({identities:JSON.stringify([{providerName:'Google', userId:'123'}])}), '123');
