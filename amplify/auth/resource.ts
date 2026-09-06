@@ -23,6 +23,8 @@ export const auth = defineAuth({
       callbackUrls: [
         'https://finplanner.hiramyatech.com/',
         'http://localhost:8000/',
+        'https://finplanner.hiramyatech.com/auth/connect.html',
+        'http://localhost:8000/auth/connect.html',
       ],
       logoutUrls: [
         'https://finplanner.hiramyatech.com/',

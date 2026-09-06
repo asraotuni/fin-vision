@@ -34,18 +34,23 @@ export function createIdentityService(store, now = () => Math.floor(Date.now() /
     return fail(409, 'Account changed. Please retry.');
   }
 
-  return {
+  const service = {
     async resolve(subject){
       const account = await accountFor(subject);
       return {accountId:account.accountId, linkedIdentityCount:account.subjects.length};
     },
-    async start(subject){
+    async start(subject, startedAt = now()){
       const account = await accountFor(subject);
       const ticket = randomBytes(32).toString('hex');
-      const startedAt = now();
       await store.commit([{put:{pk:`LINK#${digest(ticket)}`, sourceSubject:subject,
-        accountId:account.accountId, startedAt, expiresAt:startedAt + 600}, absent:true}]);
-      return {ticket, expiresAt:startedAt + 600};
+        accountId:account.accountId, startedAt, expiresAt:now() + 600}, absent:true}]);
+      return {ticket, expiresAt:now() + 600};
+    },
+    async connect(sourceSubject, targetSubject, authTime){
+      if(!Number.isFinite(authTime) || authTime < now() - 600 || authTime > now() + 5) return fail(401, 'Verify the sign-in method again.');
+      if(sourceSubject === targetSubject) return service.resolve(sourceSubject);
+      const {ticket} = await service.start(sourceSubject, authTime);
+      return service.complete(targetSubject, authTime, ticket);
     },
     async complete(subject, authTime, ticket){
       if(typeof ticket !== 'string' || !/^[a-f0-9]{64}$/.test(ticket)) return fail(400, 'Invalid linking request.');
@@ -76,4 +81,5 @@ export function createIdentityService(store, now = () => Math.floor(Date.now() /
       return fail(409, 'Account changed while linking. Please retry.');
     },
   };
+  return service;
 }

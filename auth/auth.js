@@ -4,7 +4,10 @@ import { cognitoUserPoolsTokenProvider } from 'aws-amplify/auth/cognito';
 import { sessionStorage as authSessionStorage } from 'aws-amplify/utils';
 import { Hub } from 'aws-amplify/utils';
 import 'aws-amplify/auth/enable-oauth-listener';
-import { ADDRESS_SCOPE, BIRTHDAY_SCOPE, googleSubject, readGoogleProfile } from './auth-profile.js';
+import { ADDRESS_SCOPE, BIRTHDAY_SCOPE, googleSubject, readGoogleProfile, plannerNameDefaults, ageFromBirthday } from './auth-profile.js';
+
+import { createMobileConnection } from './connect-mobile.js';
+import { connectGoogle } from './connect-google.js';
 
 const byId = id => document.getElementById(id);
 let config;
@@ -20,20 +23,10 @@ let authenticatedSubject;
 let otpMode = 'signin';
 let otpBusy = false;
 let linkingBusy = false;
-const linkStorageKey = 'hiramyatech-pending-account-link';
-
-function pendingLink(){
-  try {
-    const link = JSON.parse(sessionStorage.getItem(linkStorageKey));
-    if(link && link.expiresAt * 1000 > Date.now()) return link;
-  } catch { /* Invalid local state cannot authorize a link. */ }
-  sessionStorage.removeItem(linkStorageKey);
-  return null;
-}
-
-function identityLabel(payload){
-  return googleSubject(payload) ? `Google (${payload.email || payload.name || 'Google account'})` : (payload.phone_number || payload.email || 'Signed-in account');
-}
+let mobileConnection;
+let secondaryToken;
+let googleConnection;
+let mobileSkipped = false;
 
 async function accountRequest(action, extra = {}){
   const session = await fetchAuthSession();
@@ -56,6 +49,10 @@ function lockPlanner(message = 'Sign in with your mobile number or Google to con
     sessionStorage.removeItem(`hiramyatech-session-plan:${window.finVisionUserId}`);
   }
   window.finVisionUserId = null;
+  window.finVisionProfile = null;
+  mobileConnection = null;
+  secondaryToken = null;
+  googleConnection?.abort();
   currentSubject = null;
   authenticatedSubject = null;
   isGoogleSession = false;
@@ -64,8 +61,9 @@ function lockPlanner(message = 'Sign in with your mobile number or Google to con
   byId('resetDataBtn').hidden = true;
   byId('signOutBtn').hidden = true;
   byId('loginPanel').hidden = false;
-  byId('linkConfirmPanel').hidden = true;
-  byId('linkInstructions').hidden = !pendingLink();
+  byId('addMobilePanel').hidden = true;
+  byId('accountEmail').textContent = '';
+  byId('accountLinkStatus').textContent = '';
   byId('retryAccountBtn').hidden = true;
   byId('accountName').textContent = 'Not provided';
   byId('accountMethod').textContent = 'Not provided';
@@ -99,15 +97,6 @@ async function synchronize(){
     lockPlanner();
     return;
   }
-  const link = pendingLink();
-  if(link && payload.sub !== link.sourceSubject){
-    byId('loginPanel').hidden = true;
-    byId('accountPanel').hidden = true;
-    byId('plannerWorkspace').hidden = true;
-    byId('linkConfirmPanel').hidden = false;
-    byId('linkConfirmDescription').textContent = `Link ${identityLabel(payload)} to ${link.sourceLabel}?`;
-    return;
-  }
   if(signedIn){
     if(authenticatedSubject !== payload.sub){
       lockPlanner('Your account changed. Reload to continue with the new account.');
@@ -122,12 +111,13 @@ async function synchronize(){
   authenticatedSubject = payload.sub;
   currentSubject = subject;
   isGoogleSession = Boolean(subject);
+  window.finVisionProfile = plannerNameDefaults(payload);
   await loadPlanner();
   if(generation !== sessionGeneration) return;
   signedIn = true;
   byId('accountMethod').textContent = isGoogleSession ? 'Google' : payload.phone_number ? 'Mobile number + OTP' : 'Email';
-  byId('accountIdentitySummary').textContent = `${identity.linkedIdentityCount} verified sign-in ${identity.linkedIdentityCount === 1 ? 'identity' : 'identities'} connected to this account.`;
-  byId('startLinkBtn').disabled = false;
+  updateConnectedMethods(identity);
+  byId('accountEmail').textContent = payload.email ? `Google email: ${payload.email}` : '';
   byId('accountName').textContent = payload.name || [payload.given_name, payload.family_name].filter(Boolean).join(' ') || payload.phone_number || (isGoogleSession ? 'Not provided by Google' : 'Mobile user');
   byId('loginPanel').hidden = true;
   byId('retryAccountBtn').hidden = true;
@@ -189,7 +179,9 @@ async function prepareProfileConsent(){
           if(!signedIn || generation !== sessionGeneration) return;
           byId('accountDob').textContent = details.birthday;
           byId('accountCountry').textContent = details.country;
-          byId('profileStatus').textContent = 'Only the details you permitted and Google provided are displayed. Nothing from this request is saved.';
+          const age = ageFromBirthday(details.birthday);
+          if(age !== null) window.finVisionApplyGoogleAge?.(age);
+          byId('profileStatus').textContent = 'Shared details are displayed here. If available, your age fills an untouched planner field and remains editable. Your planner draft stays only in this tab.';
         } catch(error){
           if(signedIn && generation === sessionGeneration) byId('profileStatus').textContent = error.message;
         } finally {
@@ -383,7 +375,6 @@ byId('googleSignInBtn').addEventListener('click', async () => {
 });
 
 byId('signOutBtn').addEventListener('click', async () => {
-  sessionStorage.removeItem(linkStorageKey);
   byId('signOutBtn').disabled = true;
   lockPlanner('Signing out…');
   try { await signOut(); }
@@ -392,51 +383,102 @@ byId('signOutBtn').addEventListener('click', async () => {
   } finally { byId('signOutBtn').disabled = false; }
 });
 
-byId('startLinkBtn').addEventListener('click', async () => {
-  byId('startLinkBtn').disabled = true;
-  try {
-    const session = await fetchAuthSession();
-    const payload = session.tokens?.idToken?.payload;
-    if(!payload?.sub) throw new Error('Please sign in again.');
-    const link = await accountRequest('start');
-    sessionStorage.setItem(linkStorageKey, JSON.stringify({...link, sourceSubject:payload.sub, sourceLabel:identityLabel(payload)}));
-    lockPlanner('Sign in with the other method to link it.');
-    await signOut();
-    window.location.replace(config.redirectUrl);
-  } catch(error){
-    byId('accountLinkStatus').textContent = error.message;
-    byId('authStatus').textContent = error.message;
-    byId('startLinkBtn').disabled = false;
-  }
-});
-
-async function cancelLink(){
-  if(linkingBusy) return;
-  sessionStorage.removeItem(linkStorageKey);
-  lockPlanner('Account linking cancelled. Sign in to continue.');
-  try { await signOut(); window.location.replace(config.redirectUrl); }
-  catch { byId('authStatus').textContent = 'Could not sign out. Reload and try again.'; }
+function updateConnectedMethods(identity){
+  byId('accountIdentitySummary').textContent = identity.linkedIdentityCount > 1
+    ? 'Google and mobile sign-in are connected to your account.' : 'Add another way to sign in whenever you like.';
+  byId('addMobilePanel').hidden = !isGoogleSession || identity.linkedIdentityCount > 1 || mobileSkipped;
+  byId('showMobileBtn').hidden = !isGoogleSession || identity.linkedIdentityCount > 1 || !mobileSkipped;
+  byId('connectGooglePanel').hidden = isGoogleSession || identity.linkedIdentityCount > 1;
 }
-byId('cancelLinkBtn').addEventListener('click', cancelLink);
-byId('rejectLinkBtn').addEventListener('click', cancelLink);
-byId('confirmLinkBtn').addEventListener('click', async () => {
-  if(linkingBusy) return;
+
+async function finishConnection(accessToken, generation){
+  if(!signedIn || generation !== sessionGeneration) return;
+  secondaryToken = accessToken;
+  const identity = await accountRequest('connect',{accessToken});
+  if(!signedIn || generation !== sessionGeneration) return;
+  if(identity.accountId !== window.finVisionUserId) throw new Error('Your account changed. Reload before continuing.');
+  secondaryToken = null;
+  mobileConnection = null;
+  updateConnectedMethods(identity);
+  byId('accountLinkStatus').textContent = 'Connected. You can now sign in with Google or your mobile number.';
+  byId('connectMobileCode').value = '';
+}
+
+async function connectionTask(work){
+  if(!signedIn || linkingBusy) return;
+  const generation = sessionGeneration;
   linkingBusy = true;
-  byId('confirmLinkBtn').disabled = true;
-  byId('rejectLinkBtn').disabled = true;
-  try {
-    const link = pendingLink();
-    if(!link) throw new Error('Linking expired. Cancel and start again.');
-    await accountRequest('complete', {ticket:link.ticket});
-    sessionStorage.removeItem(linkStorageKey);
-    window.location.replace(config.redirectUrl);
-  } catch(error){ byId('linkStatus').textContent = error.message; }
+  document.querySelectorAll('#addMobilePanel button, #connectGoogleBtn').forEach(button => {button.disabled=true;});
+  byId('accountLinkStatus').textContent = 'Verifying…';
+  try { await work(generation); }
+  catch(error){ if(signedIn && generation === sessionGeneration) byId('accountLinkStatus').textContent = error.message; }
   finally {
     linkingBusy = false;
-    byId('confirmLinkBtn').disabled = false;
-    byId('rejectLinkBtn').disabled = false;
+    document.querySelectorAll('#addMobilePanel button, #connectGoogleBtn').forEach(button => {button.disabled=false;});
   }
+}
+
+async function mobileConnectionStep(result, generation){
+  if(!signedIn || generation !== sessionGeneration) return;
+  if(result.accessToken) return finishConnection(result.accessToken,generation);
+  byId('connectMobileForm').hidden = true;
+  byId('connectMobileCodeForm').hidden = false;
+  byId('connectMobileCode').value = '';
+  byId('connectMobileCode').focus();
+  byId('accountLinkStatus').textContent = 'Enter the code from your SMS to connect this number.';
+}
+byId('connectMobileForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const phone = normalizeIndianPhoneNumber(byId('connectMobileNumber').value);
+  if(!phone){ byId('accountLinkStatus').textContent = 'Enter a valid 10-digit Indian mobile number.'; return; }
+  connectionTask(async generation => {
+    secondaryToken = null;
+    mobileConnection = createMobileConnection(config.auth);
+    byId('connectMobileDestination').textContent = phone;
+    await mobileConnectionStep(await mobileConnection.start(phone),generation);
+  });
 });
+byId('connectMobileCodeForm').addEventListener('submit', event => {
+  event.preventDefault();
+  const code = byId('connectMobileCode').value.trim();
+  if(!/^[0-9]{6}$/.test(code)){ byId('accountLinkStatus').textContent = 'Enter the 6-digit verification code.'; return; }
+  connectionTask(async generation => {
+    if(secondaryToken) return finishConnection(secondaryToken,generation);
+    if(!mobileConnection) throw new Error('Request a new verification code.');
+    await mobileConnectionStep(await mobileConnection.confirm(code),generation);
+  });
+});
+byId('resendConnectMobileBtn').addEventListener('click', () => connectionTask(async generation => {
+  secondaryToken = null;
+  await mobileConnectionStep(await mobileConnection.resend(),generation);
+}));
+byId('changeConnectMobileBtn').addEventListener('click', () => {
+  if(linkingBusy) return;
+  mobileConnection = null; secondaryToken = null;
+  byId('connectMobileForm').hidden = false;
+  byId('connectMobileCodeForm').hidden = true;
+  byId('connectMobileNumber').focus();
+});
+byId('skipMobileBtn').addEventListener('click', () => {
+  if(linkingBusy) return;
+  mobileSkipped = true; mobileConnection = null; secondaryToken = null;
+  byId('addMobilePanel').hidden = true;
+  byId('showMobileBtn').hidden = false;
+  byId('accountLinkStatus').textContent = 'You can add your mobile number later.';
+});
+byId('showMobileBtn').addEventListener('click', () => {
+  mobileSkipped = false;
+  byId('addMobilePanel').hidden = false;
+  byId('showMobileBtn').hidden = true;
+  byId('connectMobileForm').hidden = false;
+  byId('connectMobileCodeForm').hidden = true;
+  byId('connectMobileNumber').focus();
+});
+byId('connectGoogleBtn').addEventListener('click', () => connectionTask(async generation => {
+  googleConnection = new AbortController();
+  const token = await connectGoogle(config.auth,new URL('auth/connect.html',config.redirectUrl).href,googleConnection.signal);
+  await finishConnection(token,generation);
+}));
 
 async function initialize(){
   try {
@@ -446,7 +488,9 @@ async function initialize(){
     if(!outputs.auth?.user_pool_id) throw new Error('Missing auth configuration');
     const configResponse = await fetch(new URL('./auth-config.json', import.meta.url), {cache:'no-store'});
     config = configResponse.ok ? await configResponse.json() : {};
+    config.auth = outputs.auth;
     config.identityUrl = outputs.custom?.account_identity_url;
+    sessionStorage.removeItem('hiramyatech-pending-account-link');
     if(!config.identityUrl) throw new Error('Missing account identity configuration');
     const redirectUrl = new URL('./', window.location.href).href;
     if(!outputs.auth.oauth.redirect_sign_in_uri.includes(redirectUrl) || !outputs.auth.oauth.redirect_sign_out_uri.includes(redirectUrl)){

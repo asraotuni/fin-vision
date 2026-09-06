@@ -4,7 +4,7 @@ import { build } from 'esbuild';
 
 const outputDirectory = new URL('../dist/', import.meta.url);
 const projectRoot = new URL('../', import.meta.url);
-const publicFiles = ['index.html', 'styles.css', 'app.js', 'theme.js'];
+const publicFiles = ['index.html', 'styles.css', 'app.js', 'theme.js', 'auth/connect.html', 'auth/connect-callback.js'];
 
 await rm(outputDirectory, { recursive: true, force: true });
 await mkdir(outputDirectory, { recursive: true });

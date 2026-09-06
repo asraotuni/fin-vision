@@ -1,6 +1,22 @@
 export const BIRTHDAY_SCOPE = 'https://www.googleapis.com/auth/user.birthday.read';
 export const ADDRESS_SCOPE = 'https://www.googleapis.com/auth/user.addresses.read';
 
+export function plannerNameDefaults(payload){
+  if(!googleSubject(payload)) return {};
+  const clean = value => typeof value === 'string' ? value.trim().slice(0,100) : '';
+  return {firstName:clean(payload.given_name),lastName:clean(payload.family_name)};
+}
+
+export function ageFromBirthday(birthday, today = new Date()){
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(birthday);
+  if(!match) return null;
+  const [,d,m,y] = match.map(Number);
+  const date = new Date(y,m-1,d);
+  if(date.getFullYear() !== y || date.getMonth() !== m-1 || date.getDate() !== d) return null;
+  const age = today.getFullYear()-y-Number(today.getMonth()<m-1 || (today.getMonth()===m-1 && today.getDate()<d));
+  return age >= 18 && age <= 79 ? age : null;
+}
+
 // Use the Google subject, not an email or a login hint, to bind both consent flows.
 export function googleSubject(payload){
   try {

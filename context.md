@@ -2,8 +2,21 @@
 
 Last updated: 2026-09-06
 
+## Simpler sign-in connections and Google prefills (2026-09-06)
+
+- User confirmed real Google sign-in works after deployment #18 and that the Google callback domain did not change. No Google OAuth console update was needed.
+- New local implementation replaces the sign-out linking UI: Google users can add and verify mobile in place or skip; mobile users can connect Google with an isolated PKCE popup. The active Amplify session and planner draft stay intact. Secondary mobile signup/sign-in uses public Cognito APIs, independent of the main session. The backend verifies both access tokens and fresh secondary authentication before using the existing atomic account-linking service.
+- New callback files are `auth/connect.html` and `auth/connect-callback.js`. The callback URL is added to Cognito's app-client callback list for production and localhost:8000. This is a normal backend/frontend update; no user-pool reset is required. Existing Google `/oauth2/idpresponse` stays unchanged. The legacy backend start/complete endpoints remain compatible with older clients.
+- Google first/last names now prefill editable planner fields from separate Google attributes; saved edits and deliberately cleared values are preserved. Google email is displayed as sign-in metadata. Optional complete DOB consent can fill an untouched editable age; no age is inferred from incomplete birthdays. DOB/country remain account display information because the planner has no corresponding fields.
+- These UI changes are local and not yet deployed. They supersede the older sign-out/clear-draft linking instructions below. Setup documentation has been updated while preserving the previously uncommitted deployment notes.
+- Validation: 26 unit tests and 13 mocked browser tests pass (one headless worker, 9.8 seconds), along with frontend build, JavaScript syntax, backend TypeScript, CloudFormation synthesis and whitespace checks. Real provider/SMS verification of the new in-session flows remains after deployment.
+
 ## Auth deployment reset (2026-09-06)
 
+- Cloud reset completed successfully using explicit AWS CLI profile `hiramyatech-personal` (never use the client's default profile). Removal deployment #16 succeeded and the old pool emitted `DELETE_COMPLETE`. Job #17 was cancelled while clearing the reset setting; recreation deployment #18 succeeded and the root stack is `UPDATE_COMPLETE`.
+- `FIN_VISION_AUTH_RESET` is now unset. Sending a map without the key did not clear it; setting its value to an empty string resulted in the key disappearing on a subsequent read. Verify the effective value before starting a job.
+- Live pool: `ap-south-1_Dxo4vkBqn`. Cognito domain: `2b0513e63cc5036ffcdb.auth.ap-south-1.amazoncognito.com`. The public outputs were downloaded to the ignored root `amplify_outputs.json`. Identity API `https://7pqx0x108b.execute-api.ap-south-1.amazonaws.com/account` correctly rejects unauthenticated requests with HTTP 401.
+- Remaining: verify/update Google's authorized Cognito origin and redirect URI `https://2b0513e63cc5036ffcdb.auth.ap-south-1.amazoncognito.com/oauth2/idpresponse`, then test real Google and SMS sign-in/linking. The successful deployment is not proof of live OAuth or SMS delivery. These completion notes supersede the pending cloud-reset notes below.
 - Commit `f18d774` (linked accounts and root `auth/` organization) was pushed to both remotes. The user reported the expected Cognito immutable `UsernameAttributes` failure from Amplify app `dh834yyjyqy9k`, `dev` branch, root stack `amplify-dh834yyjyqy9k-dev-branch-13373787dc`.
 - Added an explicit two-stage reset switch to `amplify/backend.ts`. With branch environment variable `FIN_VISION_AUTH_RESET=dh834yyjyqy9k/dev`, a deployment removes Auth and its dependent API but preserves the identity stack/table. The switch must match `AWS_APP_ID` and only works on `dev`. After successful removal, remove the variable and redeploy to create Auth with the new schema. Update the Google Cognito callback after recreation. Do not delete the Amplify app or root stack.
 - Both removal and normal templates pass local synthesis checks, and backend TypeScript passes. The removal check is `npm run check:backend -- --reset-auth`. Each check now uses a fresh generated directory to avoid inspecting stale templates.

@@ -14,13 +14,13 @@ test.beforeAll(async () => {
 async function setup(page, signedIn = false){
   await page.route('https://fonts.googleapis.com/**', route => route.abort());
   await page.route('**/auth/auth.js', route => route.fulfill({contentType:'text/javascript',body:authBundle}));
-  await page.route('**/amplify_outputs.json', route => route.fulfill({json:{custom:{account_identity_url:'http://localhost:8765/account'},auth:{user_pool_id:'test-pool',oauth:{redirect_sign_in_uri:['http://localhost:8765/'],redirect_sign_out_uri:['http://localhost:8765/']}}}}));
+  await page.route('**/amplify_outputs.json', route => route.fulfill({json:{custom:{account_identity_url:'http://localhost:8765/account'},auth:{aws_region:'ap-south-1',user_pool_client_id:'test-client',user_pool_id:'test-pool',oauth:{domain:'test.auth.ap-south-1.amazoncognito.com',redirect_sign_in_uri:['http://localhost:8765/'],redirect_sign_out_uri:['http://localhost:8765/']}}}}));
   let linked = false;
   await page.route('**/account', route => {
     const body = route.request().postDataJSON();
     if(body.action === 'start') return route.fulfill({json:{ticket:'a'.repeat(64), expiresAt:Math.floor(Date.now()/1000)+600}});
-    if(body.action === 'complete') linked = true;
-    return route.fulfill({json:{accountId:linked ? 'account-a' : route.request().headers().authorization === 'Bearer user-a' ? 'account-a' : 'account-mobile', linkedIdentityCount:linked ? 2 : 1}});
+    if(body.action === 'connect') linked = true;
+    return route.fulfill({json:{accountId:route.request().headers().authorization === 'Bearer user-a' ? 'account-a' : 'account-mobile', linkedIdentityCount:linked ? 2 : 1}});
   });
   await page.route('**/auth/auth-config.json', route => route.fulfill({json:{googleClientId:'test-client'}}));
   await page.route('https://accounts.google.com/gsi/client', route => route.fulfill({contentType:'text/javascript',body:`window.google={accounts:{oauth2:{initTokenClient(options){window.testConsent=options;return {requestAccessToken(){window.consentOpened=true;}};}}}};`}));
@@ -84,6 +84,12 @@ test('optional consent supports missing details and never persists Google profil
   await page.evaluate(()=>window.testConsent.callback({access_token:'test-only-token',scope:'openid https://www.googleapis.com/auth/user.birthday.read https://www.googleapis.com/auth/user.addresses.read'}));
   await expect(page.locator('#accountDob')).toHaveText('12/04/1987');
   await expect(page.locator('#accountCountry')).toHaveText('Not provided by Google');
+  const today = new Date();
+  const expectedAge = today.getFullYear()-1987-Number(today.getMonth()<3 || (today.getMonth()===3 && today.getDate()<12));
+  await expect(page.locator('#age')).toHaveValue(String(expectedAge));
+  await page.locator('#age').fill('42');
+  await page.evaluate(()=>window.testConsent.callback({access_token:'test-only-token',scope:'openid https://www.googleapis.com/auth/user.birthday.read'}));
+  await expect(page.locator('#age')).toHaveValue('42');
   const stored=await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}));
   expect(stored).not.toContain('test-only-token');
   expect(stored).not.toContain('12/04/1987');
@@ -125,38 +131,89 @@ test('first-time mobile users verify registration and automatically sign in', as
   expect(await page.evaluate(() => window.testConfirmSignUpRequest)).toEqual({username:'+919876543210',confirmationCode:'123456'});
 });
 
-test('Google-first linking requires mobile proof and explicit confirmation before sharing an account', async ({page}) => {
+test('Google users verify mobile in place without losing their session or draft', async ({page}) => {
   await setup(page, true);
-  await page.locator('#firstName').fill('Draft cleared when linking');
-  await page.locator('#startLinkBtn').click();
-  await expect(page.locator('#linkInstructions')).toBeVisible();
-  expect(await page.evaluate(() => sessionStorage.getItem('hiramyatech-session-plan:account-a'))).toBeNull();
-  await page.locator('#mobileOtpStartBtn').click();
-  await page.locator('#mobileNumber').fill('9876543210');
-  await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
-  await page.locator('#otpCode').fill('123456');
-  await page.locator('#verifyOtpForm').getByRole('button',{name:'Verify OTP'}).click();
-  await expect(page.locator('#linkConfirmPanel')).toBeVisible();
-  await expect(page.locator('#plannerWorkspace')).toBeHidden();
-  await expect(page.locator('#linkConfirmDescription')).toContainText('+919876543210');
-  await page.locator('#confirmLinkBtn').click();
-  await expect(page.locator('#accountIdentitySummary')).toContainText('2 verified');
+  await page.route('https://cognito-idp.ap-south-1.amazonaws.com/',route => {
+    const operation = route.request().headers()['x-amz-target'].split('.').pop();
+    if(operation === 'SignUp') return route.fulfill({json:{UserConfirmed:false}});
+    if(operation === 'ConfirmSignUp') return route.fulfill({json:{Session:'signup-session'}});
+    return route.fulfill({json:{AuthenticationResult:{AccessToken:'mobile-proof'}}});
+  });
+  await page.locator('#firstName').fill('Keep my draft');
+  await page.locator('#connectMobileNumber').fill('9876543210');
+  await page.locator('#connectMobileForm').getByRole('button',{name:'Send verification code'}).click();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
+  await page.locator('#connectMobileCode').fill('123456');
+  await page.locator('#connectMobileCodeForm').getByRole('button',{name:'Verify mobile number'}).click();
+  await expect(page.locator('#accountLinkStatus')).toContainText('Connected.');
+  await expect(page.locator('#firstName')).toHaveValue('Keep my draft');
+  await expect(page.locator('#accountMethod')).toHaveText('Google');
   expect(await page.evaluate(() => window.finVisionUserId)).toBe('account-a');
-  expect(await page.evaluate(() => sessionStorage.getItem('hiramyatech-pending-account-link'))).toBeNull();
+  expect(await page.evaluate(() => sessionStorage.getItem('hiramyatech-session-plan:account-a'))).toContain('Keep my draft');
+  expect(await page.evaluate(() => JSON.stringify({...sessionStorage}))).not.toContain('mobile-proof');
 });
 
-test('mobile-first linking supports Google and cancellation does not join accounts', async ({page}) => {
+test('mobile users connect Google through a PKCE popup without leaving their draft', async ({page,context}) => {
   await setup(page);
+  await context.route('https://test.auth.ap-south-1.amazoncognito.com/oauth2/authorize**', route => {
+    const url = new URL(route.request().url());
+    expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+    const callback = new URL(url.searchParams.get('redirect_uri'));
+    callback.searchParams.set('code','test-code');
+    callback.searchParams.set('state',url.searchParams.get('state'));
+    return route.fulfill({status:302,headers:{location:callback.href}});
+  });
+  await page.route('https://test.auth.ap-south-1.amazoncognito.com/oauth2/token', route => {
+    expect(route.request().postData()).toContain('code_verifier=');
+    return route.fulfill({json:{access_token:'google-proof'}});
+  });
   await page.evaluate(() => {window.testAuthPayload={sub:'mobile-user-a',phone_number:'+919876543210'}; window.emitTestAuth('signedIn');});
   await expect(page.locator('#plannerWorkspace')).toBeVisible();
-  await page.locator('#startLinkBtn').click();
-  await expect(page.locator('#linkInstructions')).toBeVisible();
-  await page.locator('#googleSignInBtn').click();
-  await page.evaluate(() => {window.testAuthPayload={sub:'user-a',name:'Test Person',identities:[{providerName:'Google',userId:'google-a'}]}; window.emitTestAuth('signedIn');});
-  await expect(page.locator('#linkConfirmPanel')).toBeVisible();
-  await page.locator('#rejectLinkBtn').click();
-  await expect(page.locator('#loginPanel')).toBeVisible();
-  expect(await page.evaluate(() => sessionStorage.getItem('hiramyatech-pending-account-link'))).toBeNull();
+  await page.locator('#firstName').fill('Mobile draft');
+  await page.locator('#connectGoogleBtn').click();
+  await expect(page.locator('#accountLinkStatus')).toContainText('Connected.');
+  await expect(page.locator('#firstName')).toHaveValue('Mobile draft');
+  await expect(page.locator('#accountMethod')).toHaveText('Mobile number + OTP');
+  expect(await page.evaluate(() => window.finVisionUserId)).toBe('account-mobile');
+});
+
+test('Google names prefill editable planner fields and preserve saved edits and cleared fields', async ({page}) => {
+  await setup(page);
+  await page.evaluate(() => {window.testAuthPayload={sub:'user-a',given_name:'First',family_name:'Last',email:'test@example.com',identities:[{providerName:'Google',userId:'google-a'}]}; window.emitTestAuth('signedIn');});
+  await expect(page.locator('#firstName')).toHaveValue('First');
+  await expect(page.locator('#lastName')).toHaveValue('Last');
+  await expect(page.locator('#accountEmail')).toContainText('test@example.com');
+  await page.locator('#firstName').fill('Preferred name');
+  await page.locator('#lastName').fill('');
+  await page.reload();
+  await expect(page.locator('#firstName')).toHaveValue('Preferred name');
+  await expect(page.locator('#lastName')).toHaveValue('');
+});
+
+test('mobile addition can be skipped and resumed without clearing the planner', async ({page}) => {
+  await setup(page,true);
+  await page.locator('#firstName').fill('Still here');
+  await page.locator('#skipMobileBtn').click();
+  await expect(page.locator('#addMobilePanel')).toBeHidden();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
+  await page.locator('#showMobileBtn').click();
+  await expect(page.locator('#connectMobileForm')).toBeVisible();
+  await expect(page.locator('#firstName')).toHaveValue('Still here');
+});
+
+test('incorrect mobile verification keeps the Google session and draft intact', async ({page}) => {
+  await setup(page,true);
+  await page.route('https://cognito-idp.ap-south-1.amazonaws.com/',route => route.request().headers()['x-amz-target'].endsWith('.SignUp')
+    ? route.fulfill({json:{UserConfirmed:false}})
+    : route.fulfill({status:400,json:{__type:'CodeMismatchException',message:'Incorrect verification code'}}));
+  await page.locator('#firstName').fill('Keep this');
+  await page.locator('#connectMobileNumber').fill('9876543210');
+  await page.locator('#connectMobileForm').getByRole('button',{name:'Send verification code'}).click();
+  await page.locator('#connectMobileCode').fill('999999');
+  await page.locator('#connectMobileCodeForm').getByRole('button',{name:'Verify mobile number'}).click();
+  await expect(page.locator('#accountLinkStatus')).toContainText('Incorrect verification code');
+  await expect(page.locator('#accountMethod')).toHaveText('Google');
+  await expect(page.locator('#firstName')).toHaveValue('Keep this');
 });
 
 test('account API failure never opens a planner under the raw Cognito subject', async ({page}) => {

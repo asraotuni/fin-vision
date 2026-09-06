@@ -48,6 +48,17 @@ test('unlinked methods never get merged implicitly', async () => {
   assert.notEqual(a.accountId, b.accountId);
 });
 
+test('in-session connection preserves the source account and requires fresh secondary proof',async () => {
+  const {service} = fixture();
+  const original = await service.resolve('google');
+  await assert.rejects(service.connect('google','mobile',300),{status:401});
+  await assert.rejects(service.connect('google','mobile',1100),{status:401});
+  const linked = await service.connect('google','mobile',990);
+  assert.equal(linked.accountId,original.accountId);
+  assert.deepEqual(await service.resolve('google'),await service.resolve('mobile'));
+  assert.deepEqual(await service.connect('google','mobile',990),linked);
+});
+
 test('concurrent initial requests create only one account per identity', async () => {
   const {service, records} = fixture();
   const results = await Promise.all(Array.from({length:8}, () => service.resolve('google')));
@@ -136,4 +147,15 @@ test('HTTP rejects malformed and oversized input without exposing internals', as
   assert.equal((await handler(event(token(),{action:'other'}))).statusCode,400);
   assert.equal((await handler(event(token(),{action:'complete',ticket:'a'.repeat(3000)}))).statusCode,400);
   assert.equal((await handler(event(token(),{action:'complete',ticket:'a'.repeat(64)}))).statusCode,410);
+});
+
+test('HTTP connection verifies both tokens before linking and ignores supplied account IDs',async () => {
+  const {service} = fixture();
+  const handler = createIdentityHandler(service,jwt => verifier.verify(jwt));
+  const source = token();
+  assert.equal((await handler(event(source,{action:'connect',accessToken:'forged'}))).statusCode,401);
+  const result = await handler(event(source,{action:'connect',accessToken:token({sub:'mobile',auth_time:1000}),accountId:'attacker-chosen'}));
+  assert.equal(result.statusCode,200);
+  assert.notEqual(JSON.parse(result.body).accountId,'attacker-chosen');
+  assert.deepEqual(await service.resolve(`${issuer}#google`),await service.resolve(`${issuer}#mobile`));
 });

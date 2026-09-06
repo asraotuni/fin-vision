@@ -46,7 +46,6 @@
 
       <section class="auth-card" id="loginPanel" aria-labelledby="loginHeading">
         <h2 id="loginHeading">Sign in to your planner</h2>
-        <p id="linkInstructions" hidden>Sign in with the other method, then confirm that both sign-ins belong to you. <button type="button" class="text-button" id="cancelLinkBtn">Cancel linking</button></p>
         <p>Use your mobile number or Google account to start your plan.</p>
         <button type="button" class="google-signin" id="googleSignInBtn" disabled>Continue with Google</button>
         <div class="auth-alternatives">
@@ -70,24 +69,37 @@
         <noscript>Enable JavaScript to sign in and use the planner.</noscript>
       </section>
 
-      <section class="auth-card" id="linkConfirmPanel" hidden aria-labelledby="linkConfirmHeading">
-        <h2 id="linkConfirmHeading">Link these sign-ins?</h2>
-        <p id="linkConfirmDescription"></p>
-        <p>Confirm only if both sign-ins belong to you. Either sign-in will have access to the same account. If you already have two accounts, this joins their identities. Planner drafts are not merged or saved to a server.</p>
-        <button type="button" class="add-member" id="confirmLinkBtn">Confirm account link</button>
-        <button type="button" class="text-button" id="rejectLinkBtn">Cancel and sign out</button>
-        <p id="linkStatus" role="status"></p>
-      </section>
-
       <section class="auth-profile" id="accountPanel" aria-labelledby="accountHeading" hidden>
         <h2 id="accountHeading">Your account</h2>
         <dl><div><dt>Sign-in method</dt><dd id="accountMethod">Not provided</dd></div><div><dt>Name</dt><dd id="accountName">Not provided</dd></div><div><dt>Date of birth</dt><dd id="accountDob">Not shared</dd></div><div><dt>Region / country</dt><dd id="accountCountry">Not shared</dd></div></dl>
+        <p id="accountEmail"></p>
         <div id="googleProfileDetails"><p class="auth-note">With your consent, Google can share your birthday and address information so we can display your date of birth and region/country. These details stay in memory and are cleared on reload or sign-out. You can continue without sharing them.</p>
         <button type="button" class="add-member" id="shareGoogleProfileBtn" disabled>Share DOB and country from Google</button></div>
         <p id="profileStatus" role="status"></p>
         <p id="accountIdentitySummary"></p>
-        <p class="auth-note">Link Google or a mobile number to use either for this account. You will sign out to verify the other method; your current planner draft will be cleared. Email sign-in is coming later.</p>
-        <button type="button" class="add-member" id="startLinkBtn">Link another sign-in method</button>
+        <div id="addMobilePanel" hidden>
+          <h3>Add your mobile number</h3>
+          <p>Sign in with OTP too. Verify your number once to connect it to this account. Your planner stays open.</p>
+          <form id="connectMobileForm" class="otp-form">
+            <label for="connectMobileNumber">Mobile number</label>
+            <input id="connectMobileNumber" type="tel" autocomplete="tel" inputmode="tel" maxlength="14" placeholder="10-digit Indian number" required>
+            <button type="submit" class="add-member">Send verification code</button>
+          </form>
+          <form id="connectMobileCodeForm" class="otp-form" hidden>
+            <label for="connectMobileCode">Code sent to <strong id="connectMobileDestination"></strong></label>
+            <input id="connectMobileCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+            <p class="auth-note">Verifying connects this mobile sign-in to your current account, including any account already registered with this number.</p>
+            <button type="submit" class="add-member">Verify mobile number</button>
+            <button type="button" class="text-button" id="resendConnectMobileBtn">Resend code</button>
+            <button type="button" class="text-button" id="changeConnectMobileBtn">Change number</button>
+          </form>
+          <button type="button" class="text-button" id="skipMobileBtn">Skip for now</button>
+        </div>
+        <button type="button" class="text-button" id="showMobileBtn" hidden>Add mobile number</button>
+        <div id="connectGooglePanel" hidden>
+          <p>Use Google to sign in to this account too. Your planner stays open.</p>
+          <button type="button" class="add-member" id="connectGoogleBtn">Connect Google</button>
+        </div>
         <p id="accountLinkStatus" role="status"></p>
       </section>
 
