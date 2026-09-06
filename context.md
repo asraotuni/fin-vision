@@ -2,6 +2,13 @@
 
 Last updated: 2026-09-06
 
+## Optional sign-in and guest landing (local)
+
+- User confirmed shared names now work on mobile login, then requested removing mandatory sign-in. New visitors now land on About you, with Sign in in the top-right header. The login panel opens only on demand and has Continue without signing in.
+- Guests can use all planner tabs, calculations and report download. Guest drafts use a separate `hiramyatech-guest-plan` tab-session key and reopen on About you. They are not merged into account drafts. Signing out clears account data and returns to the guest draft. Account-only name saving stays hidden for guests.
+- Missing auth configuration and account API failures leave guest planning usable; account APIs still require verified tokens. Authenticated-to-guest transitions reload to clear the previous planner DOM; an explicit guest-mode marker avoids repeatedly restoring a failed account session and is cleared for a new sign-in attempt.
+- Changes remain local and are not committed or deployed.
+
 ## Shared names across sign-in methods (local implementation)
 
 - User confirmed deployment #20 (`7c8ed10`) succeeded, eight-digit mobile login works, and Google now returns birthday day/month but no year or usable country. Mobile login then exposed the lack of shared profile persistence.

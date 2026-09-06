@@ -109,6 +109,8 @@ Open `http://localhost:8000/`. Serve `dist/`, not the source root: the auth entr
 
 ## Data and consent behavior
 
+- Sign-in is optional. Guests land on About you and can use the entire planner and report download. Header Sign in opens authentication on demand. Guest drafts use `hiramyatech-guest-plan` in session storage, separately from account drafts; signing in does not merge them. Signing out returns to the guest planner. Auth outages leave the guest planner available, while profile/identity API authorization is unchanged. These notes supersede older statements that the frontend stays locked without authentication.
+
 - First and last names now persist in the canonical DynamoDB account record. `seedProfile` supplies Google defaults only for missing fields, while `saveProfile` stores explicit edits (including empty names). Both derive the account exclusively from the verified access token and resolve aliases; names are editable display data, never identity proof. Conditional writes coordinate with linking, which keeps source names and fills missing fields from the target. Concurrent saves to the same field use the last successful write.
 - The **Save name** button stores planner name edits for either sign-in method. Existing users must sign in with Google once after this deployment to populate the shared defaults, or enter and save their names through mobile. No user-pool reset is required. These name persistence notes supersede the earlier session-only name statements; other planner values and DOB/country remain temporary.
 

@@ -32,6 +32,7 @@
         <span class="secure"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10V7a5 5 0 0 1 10 0v3m-9 0h8a2 2 0 0 1 2 2v7H6v-7a2 2 0 0 1 2-2Z"/></svg> Your data stays private</span>
         <button type="button" class="reset-data" id="resetDataBtn" hidden>Reset entered data</button>
         <button type="button" class="auth-signout" id="signOutBtn" hidden>Sign out</button>
+        <button type="button" class="auth-signout" id="openSignInBtn">Sign in</button>
         <button type="button" class="icon-button theme-toggle" id="themeToggle" aria-label="Use dark mode" aria-pressed="false" title="Use dark mode"><span aria-hidden="true">☾</span></button>
         <button type="button" class="icon-button help-button" aria-label="Help">?</button>
       </div>
@@ -44,9 +45,10 @@
         <p>A few simple details. One clear, actionable plan.</p>
       </section>
 
-      <section class="auth-card" id="loginPanel" aria-labelledby="loginHeading">
+      <section class="auth-card" id="loginPanel" aria-labelledby="loginHeading" hidden>
         <h2 id="loginHeading">Sign in to your planner</h2>
-        <p>Use your mobile number or Google account to start your plan.</p>
+        <p>Sign in to connect your account. You can also use the planner without signing in.</p>
+        <button type="button" class="text-button" id="closeSignInBtn">Continue without signing in</button>
         <button type="button" class="google-signin" id="googleSignInBtn" disabled>Continue with Google</button>
         <div class="auth-alternatives">
           <button type="button" class="mobile-otp-start" id="mobileOtpStartBtn" disabled>Mobile number + OTP</button>
@@ -130,7 +132,7 @@
             <div class="form-grid">
               <label class="field"><span>First name</span><div class="input-wrap"><input id="firstName" type="text" placeholder="First name" autocomplete="given-name"><svg viewBox="0 0 24 24"><path d="M5 21a7 7 0 0 1 14 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg></div></label>
               <label class="field"><span>Last name</span><div class="input-wrap"><input id="lastName" type="text" placeholder="Last name" autocomplete="family-name"><svg viewBox="0 0 24 24"><path d="M5 21a7 7 0 0 1 14 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg></div></label>
-              <div class="full"><button type="button" class="add-member" id="saveAccountNameBtn">Save name</button><p class="auth-note">Your name is saved to your account for Google and mobile sign-in. Other planner details stay only in this tab.</p><p id="nameSaveStatus" role="status"></p></div>
+              <div class="full" id="accountNameControls" hidden><button type="button" class="add-member" id="saveAccountNameBtn">Save name</button><p class="auth-note">Your name is saved to your account for Google and mobile sign-in. Other planner details stay only in this tab.</p><p id="nameSaveStatus" role="status"></p></div>
               <label class="field"><span>Current age</span><div class="input-wrap"><input id="age" type="number" value="32" min="18" max="79"><span class="suffix">years</span></div></label>
               <label class="field"><span>Retire by</span><div class="input-wrap"><input id="retireAge" type="number" value="60" min="35" max="90"><span class="suffix">years</span></div></label>
               <label class="field"><span>Life expectancy</span><div class="input-wrap"><input id="lifeExpectancy" type="number" value="85" min="50" max="100"><span class="suffix">years</span></div><small>How long do you expect to live? Maximum 100.</small></label>

@@ -3,8 +3,7 @@ const steps = [...document.querySelectorAll('.step')];
 const nextBtn = document.querySelector('#nextBtn');
 const backBtn = document.querySelector('#backBtn');
 const stepCount = document.querySelector('#stepCount');
-if(!window.finVisionUserId) throw new Error('Sign in before loading the planner.');
-const STORAGE_KEY = `hiramyatech-session-plan:${window.finVisionUserId}`;
+const STORAGE_KEY = window.finVisionUserId ? `hiramyatech-session-plan:${window.finVisionUserId}` : 'hiramyatech-guest-plan';
 const editedProfileFields = new Set();
 document.addEventListener('input', event => {
   if(['firstName','lastName','age'].includes(event.target.id)) editedProfileFields.add(event.target.id);
@@ -1147,4 +1146,4 @@ if(!restoredAssetList){
   addAsset({type:'Mutual funds', value:500000, returnRate:11}, false);
 }
 prepareCurrencyInputs();
-updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateEmergencyFundSummary(); updateEmergencyEmiFundSummary(); updateProtectionSummary(); showPanel(restoredStep);
+updateBasics(); updateCash(); updateRiskProfile(); updateAssetSummary(); updateLoanSummary(); updateExpenseSummary(); updateEmergencyFundSummary(); updateEmergencyEmiFundSummary(); updateProtectionSummary(); showPanel(window.finVisionUserId ? restoredStep : 0);

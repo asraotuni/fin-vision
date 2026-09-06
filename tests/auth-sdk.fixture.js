@@ -14,6 +14,7 @@ export async function signIn(options){
   return window.testMobileSignInResponse || {nextStep:{signInStep:'CONFIRM_SIGN_IN_WITH_SMS_CODE'}};
 }
 export async function confirmSignIn(options){
+  window.sessionStorage.setItem('test-confirm-signin',JSON.stringify(options));
   window.testConfirmSignInRequest = options;
   const result = window.testConfirmSignInResponse || {nextStep:{signInStep:'DONE'}};
   if(result.nextStep?.signInStep === 'DONE') {
@@ -31,6 +32,7 @@ export async function signUp(options){
   return {nextStep:{signUpStep:'CONFIRM_SIGN_UP'}};
 }
 export async function confirmSignUp(options){
+  window.sessionStorage.setItem('test-confirm-signup',JSON.stringify(options));
   window.testConfirmSignUpRequest = options;
   return {nextStep:{signUpStep:'COMPLETE_AUTO_SIGN_IN'}};
 }

@@ -16,6 +16,8 @@ let isGoogleSession = false;
 let otpPhoneNumber = '';
 let signedIn = false;
 let plannerLoaded = false;
+let plannerLoading;
+let plannerAccount = null;
 let syncPending;
 let tokenClient;
 let sessionGeneration = 0;
@@ -41,7 +43,7 @@ async function accountRequest(action, extra = {}){
   return result;
 }
 
-function lockPlanner(message = 'Sign in with your mobile number or Google to continue.'){
+function lockPlanner(message = 'Sign in optionally with your mobile number or Google.'){
   sessionGeneration += 1;
   signedIn = false;
   tokenClient = null;
@@ -56,11 +58,13 @@ function lockPlanner(message = 'Sign in with your mobile number or Google to con
   currentSubject = null;
   authenticatedSubject = null;
   isGoogleSession = false;
-  byId('plannerWorkspace').hidden = true;
+  byId('plannerWorkspace').hidden = Boolean(plannerAccount);
   byId('accountPanel').hidden = true;
-  byId('resetDataBtn').hidden = true;
+  byId('resetDataBtn').hidden = Boolean(plannerAccount);
   byId('signOutBtn').hidden = true;
-  byId('loginPanel').hidden = false;
+  byId('openSignInBtn').hidden = false;
+  byId('saveAccountNameBtn').hidden = true;
+  byId('accountNameControls').hidden = true;
   byId('addMobilePanel').hidden = true;
   byId('accountEmail').textContent = '';
   byId('accountLinkStatus').textContent = '';
@@ -73,19 +77,38 @@ function lockPlanner(message = 'Sign in with your mobile number or Google to con
   byId('googleProfileDetails').hidden = true;
   byId('shareGoogleProfileBtn').disabled = true;
   byId('authStatus').textContent = message;
+  if(plannerAccount){
+    sessionStorage.setItem('hiramyatech-guest-mode',message);
+    window.location.reload();
+  }
 }
 
 async function loadPlanner(){
   if(plannerLoaded) return;
-  await new Promise((resolve, reject) => {
+  if(plannerLoading) return plannerLoading;
+  plannerAccount = window.finVisionUserId || null;
+  plannerLoading = new Promise((resolve, reject) => {
     const script = document.createElement('script');
     script.src = new URL('app.js', document.baseURI).href;
     script.onload = resolve;
     script.onerror = () => reject(new Error('Planner failed to load. Reload the page to try again.'));
     document.body.appendChild(script);
   });
+  await plannerLoading;
   plannerLoaded = true;
+  byId('plannerWorkspace').hidden = false;
+  byId('resetDataBtn').hidden = false;
+  byId('saveAccountNameBtn').hidden = !window.finVisionUserId;
+  byId('accountNameControls').hidden = !window.finVisionUserId;
 }
+
+byId('openSignInBtn').addEventListener('click', () => {
+  byId('loginPanel').hidden = false;
+  byId('loginPanel').scrollIntoView({behavior:'smooth'});
+});
+byId('closeSignInBtn').addEventListener('click', () => {
+  byId('loginPanel').hidden = true;
+});
 
 async function synchronize(){
   const generation = sessionGeneration;
@@ -97,6 +120,7 @@ async function synchronize(){
     lockPlanner();
     return;
   }
+  sessionStorage.removeItem('hiramyatech-guest-mode');
   if(signedIn){
     if(authenticatedSubject !== payload.sub){
       lockPlanner('Your account changed. Reload to continue with the new account.');
@@ -108,7 +132,7 @@ async function synchronize(){
     ? await accountRequest('seedProfile', {profile:defaults}) : await accountRequest('resolve');
   if(generation !== sessionGeneration) return;
   if(typeof identity.accountId !== 'string' || !identity.accountId) throw new Error('Account identity could not be verified.');
-  if(plannerLoaded){ window.location.replace(config.redirectUrl); return; }
+  if(plannerLoaded || plannerLoading){ window.location.replace(config.redirectUrl); return; }
   window.finVisionUserId = identity.accountId;
   authenticatedSubject = payload.sub;
   currentSubject = subject;
@@ -117,6 +141,7 @@ async function synchronize(){
   await loadPlanner();
   if(generation !== sessionGeneration) return;
   signedIn = true;
+  byId('openSignInBtn').hidden = true;
   byId('accountMethod').textContent = isGoogleSession ? 'Google' : payload.phone_number ? 'Mobile number + OTP' : 'Email';
   updateConnectedMethods(identity);
   byId('accountEmail').textContent = payload.email ? `Google email: ${payload.email}` : '';
@@ -268,6 +293,7 @@ async function handleOtpStep(nextStep){
 }
 
 async function requestOtp(createAccount = false){
+  sessionStorage.removeItem('hiramyatech-guest-mode');
   if(otpBusy) return;
   const mobileNumber = normalizeIndianPhoneNumber(byId('mobileNumber').value);
   if(!mobileNumber){
@@ -384,8 +410,8 @@ byId('changeMobileBtn').addEventListener('click', () => {
 
 byId('googleSignInBtn').addEventListener('click', async () => {
   if(otpBusy) return;
+  sessionStorage.removeItem('hiramyatech-guest-mode');
   // Recreate the planner on the next login rather than reusing another session's form.
-  if(plannerLoaded){ window.location.replace(config.redirectUrl); return; }
   byId('googleSignInBtn').disabled = true;
   byId('authStatus').textContent = 'Opening Google sign-in…';
   try { await signInWithRedirect({provider:'Google'}); }
@@ -397,8 +423,7 @@ byId('googleSignInBtn').addEventListener('click', async () => {
 
 byId('signOutBtn').addEventListener('click', async () => {
   byId('signOutBtn').disabled = true;
-  lockPlanner('Signing out…');
-  try { await signOut(); }
+  try { await signOut(); window.location.reload(); }
   catch {
     byId('authStatus').textContent = 'Sign-out could not finish. Reload and try again.';
   } finally { byId('signOutBtn').disabled = false; }
@@ -534,13 +559,17 @@ async function initialize(){
     Amplify.configure(outputs);
     byId('googleSignInBtn').disabled = false;
     byId('mobileOtpStartBtn').disabled = false;
-    await syncSession();
+    const guestMessage = sessionStorage.getItem('hiramyatech-guest-mode');
+    if(guestMessage) lockPlanner(guestMessage);
+    else await syncSession();
     window.addEventListener('focus', () => { if(signedIn) syncSession(); });
     setInterval(() => { if(signedIn) syncSession(); }, 60000);
   } catch {
     lockPlanner('Sign-in is not available yet. Please try again once setup is complete.');
     byId('googleSignInBtn').disabled = true;
     byId('mobileOtpStartBtn').disabled = true;
+  } finally {
+    if(!plannerLoaded) await loadPlanner();
   }
 }
 

@@ -30,11 +30,12 @@ async function setup(page, signedIn = false){
     localStorage.setItem('hiramyatech-test-data-v1',JSON.stringify({fields:{firstName:'Previous anonymous user'}}));
   }, {signedIn});
   await page.goto('/');
+  if(!signedIn) await page.locator('#openSignInBtn').click();
 }
 
-test('Google and mobile OTP are available while the planner stays locked until a session exists', async ({page}) => {
+test('Google and mobile OTP are optional while guests can use the planner', async ({page}) => {
   await setup(page);
-  await expect(page.locator('#plannerWorkspace')).toBeHidden();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
   await expect(page.locator('#signOutBtn')).toBeHidden();
   await expect(page.getByRole('button',{name:'Mobile number + OTP'})).toBeEnabled();
   await expect(page.getByRole('button',{name:'Email + OTP Coming soon'})).toBeDisabled();
@@ -45,8 +46,25 @@ test('Google and mobile OTP are available while the planner stays locked until a
   await expect(page.locator('#googleSignInBtn')).toBeEnabled();
 });
 
+test('guest landing opens About you, supports every tab, and keeps a separate draft', async ({page}) => {
+  await setup(page);
+  await page.locator('#closeSignInBtn').click();
+  await expect(page.locator('#loginPanel')).toBeHidden();
+  await expect(page.locator('#accountPanel')).toBeHidden();
+  await expect(page.locator('#accountNameControls')).toBeHidden();
+  await page.locator('#firstName').fill('Guest draft');
+  for(let i=0;i<6;i++) await page.locator('#nextBtn').click();
+  await expect(page.locator('#nextBtn')).toContainText('Download report');
+  await page.reload();
+  await expect(page.locator('#loginPanel')).toBeHidden();
+  await expect(page.locator('#firstName')).toBeVisible();
+  await expect(page.locator('#firstName')).toHaveValue('Guest draft');
+  expect(await page.evaluate(() => Object.keys(sessionStorage).filter(key => key.startsWith('hiramyatech-session-plan:')))).toEqual([]);
+});
+
 test('mobile OTP normalizes an Indian number and signs the user in after code verification', async ({page}) => {
   await setup(page);
+  await page.locator('#firstName').fill('Separate guest');
   await page.locator('#mobileOtpStartBtn').click();
   await page.locator('#mobileNumber').fill('98765 43210');
   await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
@@ -57,9 +75,13 @@ test('mobile OTP normalizes an Indian number and signs the user in after code ve
   await page.locator('#verifyOtpForm').getByRole('button',{name:'Verify OTP'}).click();
   await expect(page.locator('#plannerWorkspace')).toBeVisible();
   await expect(page.locator('#accountMethod')).toHaveText('Mobile number + OTP');
-  expect(await page.evaluate(() => window.testConfirmSignInRequest)).toEqual({challengeResponse:'12345678'});
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('test-confirm-signin')))).toEqual({challengeResponse:'12345678'});
   await expect(page.locator('#accountName')).toHaveText('Not provided');
   await expect(page.locator('#googleProfileDetails')).toBeHidden();
+  await expect(page.locator('#firstName')).toHaveValue('');
+  await page.locator('#signOutBtn').click();
+  await expect(page.locator('#accountPanel')).toBeHidden();
+  await expect(page.locator('#firstName')).toHaveValue('Separate guest');
 });
 
 test('signed-in planner isolates old drafts and sign-out hides and clears the current draft', async ({page}) => {
@@ -71,7 +93,7 @@ test('signed-in planner isolates old drafts and sign-out hides and clears the cu
   await page.locator('#firstName').fill('Current user');
   expect(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('hiramyatech-session-plan:account-a')).fields.firstName)).toBe('Current user');
   await page.locator('#signOutBtn').click();
-  await expect(page.locator('#plannerWorkspace')).toBeHidden();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
   await expect(page.locator('#signOutBtn')).toBeHidden();
   expect(await page.evaluate(()=>sessionStorage.getItem('hiramyatech-session-plan:account-a'))).toBeNull();
   expect(await page.evaluate(()=>localStorage.getItem('hiramyatech-test-data-v1'))).toContain('Previous anonymous user');
@@ -103,23 +125,26 @@ test('optional consent supports missing details and never persists Google profil
   await expect(page.locator('#accountDob')).toHaveText('Not shared');
 });
 
-test('expired session locks the planner and mobile sign-out stays visible', async ({page}) => {
+test('expired session clears account data and returns to the guest planner', async ({page}) => {
   await page.setViewportSize({width:375,height:812});
   await setup(page,true);
   await expect(page.locator('#signOutBtn')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   await page.evaluate(()=>window.emitTestAuth('tokenRefresh_failure'));
-  await expect(page.locator('#plannerWorkspace')).toBeHidden();
+  await expect(page.locator('#accountPanel')).toBeHidden();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
+  await page.locator('#openSignInBtn').click();
   await expect(page.locator('#authStatus')).toContainText('expired');
 });
 
-test('missing deployed auth configuration fails closed', async ({page}) => {
+test('missing deployed auth configuration keeps the guest planner available', async ({page}) => {
   await setup(page);
   await page.route('**/amplify_outputs.json',route=>route.fulfill({status:404,body:''}));
   await page.reload();
+  await page.locator('#openSignInBtn').click();
   await expect(page.locator('#authStatus')).toContainText('not available yet');
   await expect(page.locator('#googleSignInBtn')).toBeDisabled();
-  await expect(page.locator('#plannerWorkspace')).toBeHidden();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
 });
 
 test('first-time mobile users verify registration and automatically sign in', async ({page}) => {
@@ -134,7 +159,7 @@ test('first-time mobile users verify registration and automatically sign in', as
   await page.locator('#otpCode').fill('123456');
   await page.locator('#verifyOtpForm').getByRole('button',{name:'Verify OTP'}).click();
   await expect(page.locator('#plannerWorkspace')).toBeVisible();
-  expect(await page.evaluate(() => window.testConfirmSignUpRequest)).toEqual({username:'+919876543210',confirmationCode:'123456'});
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem('test-confirm-signup')))).toEqual({username:'+919876543210',confirmationCode:'123456'});
 });
 
 test('Google users verify mobile in place without losing their session or draft', async ({page}) => {
@@ -227,6 +252,7 @@ test('saved Google name loads after sign-out and mobile login, including an inte
   await expect(page.locator('#nameSaveStatus')).toContainText('Name saved');
   await page.locator('#signOutBtn').click();
   await page.reload();
+  await page.locator('#openSignInBtn').click();
   await page.locator('#mobileOtpStartBtn').click();
   await page.locator('#mobileNumber').fill('9876543210');
   await page.locator('#mobileOtpForm').getByRole('button',{name:'Send OTP'}).click();
@@ -268,6 +294,6 @@ test('account API failure never opens a planner under the raw Cognito subject', 
   await page.route('**/account', route => route.fulfill({status:503,json:{message:'Account service is unavailable. Please retry.'}}));
   await page.evaluate(() => {window.testAuthPayload={sub:'mobile-user-a',phone_number:'+919876543210'}; window.emitTestAuth('signedIn');});
   await expect(page.locator('#authStatus')).toContainText('Account service is unavailable');
-  await expect(page.locator('#plannerWorkspace')).toBeHidden();
+  await expect(page.locator('#plannerWorkspace')).toBeVisible();
   expect(await page.evaluate(() => window.finVisionUserId)).toBeNull();
 });
